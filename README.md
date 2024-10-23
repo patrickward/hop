@@ -1,2 +1,7 @@
 # httpgo
-HTTP helpers and middleware for my Go projects. 
+
+Simple HTTP helpers and middleware for my Go projects. 
+
+## TODO
+
+- [ ] Add more useful tests

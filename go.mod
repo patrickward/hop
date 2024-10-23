@@ -1,4 +1,4 @@
-module httpgo
+module github.com/patrickward/httpgo
 
 go 1.23.1
 

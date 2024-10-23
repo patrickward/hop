@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"httpgo"
+	"github.com/patrickward/httpgo"
 )
 
 func TestDecodeJSON(t *testing.T) {

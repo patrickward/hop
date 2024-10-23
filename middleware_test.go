@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"httpgo"
+	"github.com/patrickward/httpgo"
 )
 
 func fakeRender(w http.ResponseWriter, _ *http.Request, err error) {

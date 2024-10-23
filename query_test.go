@@ -4,7 +4,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"httpgo"
+	"github.com/patrickward/httpgo"
 )
 
 func TestQueryString(t *testing.T) {

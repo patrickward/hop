@@ -8,7 +8,7 @@ import (
 	"github.com/go-playground/form/v4"
 	"github.com/stretchr/testify/assert"
 
-	"httpgo"
+	"github.com/patrickward/httpgo"
 )
 
 type TestData struct {

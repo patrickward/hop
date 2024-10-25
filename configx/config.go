@@ -1,11 +1,10 @@
-// Package config provides a way to load configuration from JSON files and environment variables,
+// Package configx provides a way to load configuration from JSON files and environment variables,
 // along with a structure to hold the configuration settings for an application and the ability
 // to set up command-line flags for configuration options.
-package config
+package configx
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
 	"reflect"
@@ -24,6 +23,14 @@ type BaseConfig struct {
 	Log         LogConfig         `json:"log"`
 }
 
+func (c *BaseConfig) IsDevelopment() bool {
+	return c.Environment == "development"
+}
+
+func (c *BaseConfig) IsProduction() bool {
+	return c.Environment == "production"
+}
+
 type MaintenanceConfig struct {
 	Enabled bool   `json:"enabled" env:"MAINTENANCE_ENABLED" default:"false"`
 	Message string `json:"message" env:"MAINTENANCE_MESSAGE" default:""`
@@ -36,17 +43,13 @@ type ServerConfig struct {
 	IdleTimeout     Duration `json:"idle_timeout" env:"SERVER_IDLE_TIMEOUT" default:"120s"`
 	ReadTimeout     Duration `json:"read_timeout" env:"SERVER_READ_TIMEOUT" default:"10s"`
 	WriteTimeout    Duration `json:"write_timeout" env:"SERVER_WRITE_TIMEOUT" default:"10s"`
-	ShutDownTimeout Duration `json:"shutdown_timeout" env:"SERVER_SHUTDOWN_TIMEOUT" default:"10s"`
+	ShutdownTimeout Duration `json:"shutdown_timeout" env:"SERVER_SHUTDOWN_TIMEOUT" default:"10s"`
 }
 
 type DatabaseConfig struct {
 	Driver          string   `json:"driver" env:"DB_DRIVER" default:"sqlite"`
-	Host            string   `json:"host" env:"DB_HOST" default:"localhost"`
-	Port            int      `json:"port" env:"DB_PORT" default:"5432"`
-	Name            string   `json:"name" env:"DB_NAME" default:"app.db"`
-	User            string   `json:"user" env:"DB_USER" default:""`
-	Password        string   `json:"password" env:"DB_PASSWORD" default:""`
-	SSLMode         string   `json:"ssl_mode" env:"DB_SSL_MODE" default:"disable"`
+	URI             string   `json:"uri" env:"DB_URI" default:"data/db.sqlite"`
+	Timeout         Duration `json:"timeout" env:"DB_TIMEOUT" default:"5s"`
 	MaxIdleConns    int      `json:"max_idle_conns" env:"DB_MAX_IDLE_CONNS" default:"10"`
 	MaxIdleTime     Duration `json:"max_idle_time" env:"DB_MAX_IDLE_TIME" default:"5m"`
 	MaxConnLifetime Duration `json:"max_conn_lifetime" env:"DB_MAX_CONN_LIFETIME" default:"30m"`
@@ -220,7 +223,7 @@ func setFieldValue(field reflect.Value, value string) error {
 	}
 
 	switch field.Type().String() {
-	case "config.Duration":
+	case "configx.Duration":
 		d, err := time.ParseDuration(value)
 		if err != nil {
 			return err
@@ -254,24 +257,4 @@ func setFieldValue(field reflect.Value, value string) error {
 		return fmt.Errorf("unsupported field type: %s", field.Type())
 	}
 	return nil
-}
-
-// SetupFlags registers basic flags and allows for custom flag registration
-type SetupFlags func(*flag.FlagSet)
-
-// BasicFlags sets up the common flags most apps will need
-func BasicFlags(fs *flag.FlagSet) {
-	fs.String("config", "config.json", "Path to config file")
-	fs.String("env", "development", "Environment (development, staging, production)")
-	fs.Bool("debug", false, "Enable debug mode")
-}
-
-// ApplyFlagOverrides ensures that if a basic flag is set, it overrides the config
-func ApplyFlagOverrides(cfg *BaseConfig, fs *flag.FlagSet) {
-	if fs.Lookup("debug").Value.String() == "true" {
-		cfg.Debug = true
-	}
-	if fs.Lookup("env").Value.String() != "" {
-		cfg.Environment = fs.Lookup("env").Value.String()
-	}
 }

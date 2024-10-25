@@ -1,4 +1,4 @@
-package config_test
+package configx_test
 
 import (
 	"encoding/json"
@@ -6,17 +6,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/patrickward/hypercore/config"
+	"github.com/patrickward/hypercore/configx"
 )
 
 type TestConfig struct {
-	config.BaseConfig
+	configx.BaseConfig
 	API struct {
-		Endpoint    string          `json:"endpoint" env:"API_ENDPOINT" default:"http://api.local"`
-		Timeout     config.Duration `json:"timeout" env:"API_TIMEOUT" default:"30s"`
-		MaxRetries  int             `json:"max_retries" env:"API_MAX_RETRIES" default:"3"`
-		RetryDelay  config.Duration `json:"retry_delay" env:"API_RETRY_DELAY" default:"5s"`
-		EnableCache bool            `json:"enable_cache" env:"API_ENABLE_CACHE" default:"true"`
+		Endpoint    string           `json:"endpoint" env:"API_ENDPOINT" default:"http://api.local"`
+		Timeout     configx.Duration `json:"timeout" env:"API_TIMEOUT" default:"30s"`
+		MaxRetries  int              `json:"max_retries" env:"API_MAX_RETRIES" default:"3"`
+		RetryDelay  configx.Duration `json:"retry_delay" env:"API_RETRY_DELAY" default:"5s"`
+		EnableCache bool             `json:"enable_cache" env:"API_ENABLE_CACHE" default:"true"`
 	} `json:"api"`
 }
 
@@ -132,7 +132,7 @@ func TestConfigLoading(t *testing.T) {
 			cfg := &TestConfig{}
 
 			// Load config
-			err := config.Load(cfg, tt.files...)
+			err := configx.Load(cfg, tt.files...)
 
 			if tt.expectError {
 				if err == nil {
@@ -165,7 +165,7 @@ func TestDurationJSON(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		var d config.Duration
+		var d configx.Duration
 		err := json.Unmarshal([]byte(tt.input), &d)
 
 		if tt.wantErr {

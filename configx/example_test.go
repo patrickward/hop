@@ -1,4 +1,4 @@
-package config_test
+package configx_test
 
 import (
 	"flag"
@@ -6,21 +6,21 @@ import (
 	"io"
 	"os"
 
-	"github.com/patrickward/hypercore/config"
+	"github.com/patrickward/hypercore/configx"
 )
 
 func Example() {
 	// STEP1: Define a custom configuration struct that embeds BaseConfig
 	type AppConfig struct {
-		config.BaseConfig // Inherit base configuration
-		Redis             struct {
-			Host    string          `json:"host" env:"REDIS_HOST" default:"localhost"`
-			Port    int             `json:"port" env:"REDIS_PORT" default:"6379"`
-			Timeout config.Duration `json:"timeout" env:"REDIS_TIMEOUT" default:"5s"`
+		configx.BaseConfig // Inherit base configuration
+		Redis              struct {
+			Host    string           `json:"host" env:"REDIS_HOST" default:"localhost"`
+			Port    int              `json:"port" env:"REDIS_PORT" default:"6379"`
+			Timeout configx.Duration `json:"timeout" env:"REDIS_TIMEOUT" default:"5s"`
 		} `json:"redis"`
 		API struct {
-			Endpoint string          `json:"endpoint" env:"API_ENDPOINT" default:"http://api.local"`
-			Timeout  config.Duration `json:"timeout" env:"API_TIMEOUT" default:"30s"`
+			Endpoint string           `json:"endpoint" env:"API_ENDPOINT" default:"http://api.local"`
+			Timeout  configx.Duration `json:"timeout" env:"API_TIMEOUT" default:"30s"`
 		} `json:"api"`
 	}
 
@@ -57,7 +57,7 @@ func Example() {
 
 	// STEP2: Create and load configuration
 	cfg := &AppConfig{}
-	if err := config.Load(cfg, tmpfile.Name()); err != nil {
+	if err := configx.Load(cfg, tmpfile.Name()); err != nil {
 		fmt.Printf("Error loading config: %v\n", err)
 		return
 	}
@@ -82,13 +82,13 @@ func Example() {
 // ExampleDuration demonstrates how to use the Duration type
 func ExampleDuration() {
 	type Config struct {
-		Timeout config.Duration `json:"timeout" env:"TIMEOUT" default:"30s"`
+		Timeout configx.Duration `json:"timeout" env:"TIMEOUT" default:"30s"`
 	}
 
 	cfg := &Config{}
 
 	// Load with just defaults
-	if err := config.Load(cfg); err != nil {
+	if err := configx.Load(cfg); err != nil {
 		fmt.Printf("Error loading config: %v\n", err)
 		return
 	}
@@ -99,7 +99,7 @@ func ExampleDuration() {
 	_ = os.Setenv("TIMEOUT", "1m30s")
 
 	// Load again with environment variable
-	if err := config.Load(cfg); err != nil {
+	if err := configx.Load(cfg); err != nil {
 		fmt.Printf("Error loading config: %v\n", err)
 		return
 	}
@@ -114,10 +114,10 @@ func ExampleDuration() {
 func ExampleBasicFlags() {
 	// STEP1: Define a custom configuration struct
 	type AppConfig struct {
-		config.BaseConfig
+		configx.BaseConfig
 		API struct {
-			Endpoint string          `json:"endpoint" env:"API_ENDPOINT" default:"http://api.local"`
-			Timeout  config.Duration `json:"timeout" env:"API_TIMEOUT" default:"30s"`
+			Endpoint string           `json:"endpoint" env:"API_ENDPOINT" default:"http://api.local"`
+			Timeout  configx.Duration `json:"timeout" env:"API_TIMEOUT" default:"30s"`
 		} `json:"api"`
 	}
 
@@ -160,7 +160,7 @@ func ExampleBasicFlags() {
 	fs.SetOutput(io.Discard) // Disable flag output for example
 
 	// STEP3: Add basic flags
-	config.BasicFlags(fs)
+	configx.BasicFlags(fs)
 
 	// STEP4: Add custom flags for this application
 	apiTimeout := fs.Duration("api-timeout", 0, "API timeout duration")
@@ -170,17 +170,17 @@ func ExampleBasicFlags() {
 
 	// STEP6: Create and load configuration
 	cfg := &AppConfig{}
-	if err := config.Load(cfg, fs.Lookup("config").Value.String()); err != nil {
+	if err := configx.Load(cfg, fs.Lookup("config").Value.String()); err != nil {
 		fmt.Printf("Error loading config: %v\n", err)
 		return
 	}
 
 	// STEP7: Apply flag overrides
-	config.ApplyFlagOverrides(&cfg.BaseConfig, fs)
+	configx.ApplyFlagOverrides(&cfg.BaseConfig, fs)
 
 	// Apply other flag values that should override config
 	if apiTimeout != nil && *apiTimeout != 0 {
-		cfg.API.Timeout = config.Duration{Duration: *apiTimeout}
+		cfg.API.Timeout = configx.Duration{Duration: *apiTimeout}
 	}
 
 	// Print the resulting configuration

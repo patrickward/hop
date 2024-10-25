@@ -9,12 +9,7 @@
   },
   "database": {
     "driver": "postgres",
-    "host": "db.example.com",
-    "port": 5432,
-    "name": "testdb",
-    "user": "testuser",
-    "password": "testpass",
-    "ssl_mode": "disable",
+    "uri": "postgres://testuser:foobar@example.com:5432/testdb?sslmode=disable",
     "max_idle_time": "5m"
   },
   "api": {

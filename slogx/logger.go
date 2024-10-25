@@ -1,4 +1,4 @@
-package slogger
+package slogx
 
 import (
 	"io"
@@ -25,7 +25,7 @@ func LevelFromString(level string) slog.Level {
 	}
 }
 
-// Options represents the configuration options for a slogger.
+// Options represents the configuration options for a slogx.
 //
 // Format defines the format of log output. Valid values are "pretty", "text", and "json".
 //

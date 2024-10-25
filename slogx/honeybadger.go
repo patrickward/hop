@@ -1,4 +1,4 @@
-package slogger
+package slogx
 
 import "log/slog"
 
@@ -7,7 +7,7 @@ type HoneybadgerLogger struct {
 	Logger *slog.Logger
 }
 
-// Printf logs a formatted message using the HoneybadgerLogger's underlying slogger.
+// Printf logs a formatted message using the HoneybadgerLogger's underlying slogx.
 func (l HoneybadgerLogger) Printf(format string, v ...interface{}) {
 	l.Logger.Error(format, v...)
 }

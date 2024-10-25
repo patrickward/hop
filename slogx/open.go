@@ -1,4 +1,4 @@
-package slogger
+package slogx
 
 import (
 	"fmt"
@@ -37,7 +37,7 @@ func OpenLogFile(
 		Level:       level,
 		Verbose:     verbose,
 		Writer:      *writer})
-	newLogger.Info("[Slogger] slogger reopened")
+	newLogger.Info("[Slogger] slogx reopened")
 	*logger = newLogger
 	return nil
 }

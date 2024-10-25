@@ -1,0 +1,27 @@
+{
+  "environment": "testing",
+  "debug": true,
+  "server": {
+    "host": "example.com",
+    "port": 9000,
+    "read_timeout": "30s",
+    "write_timeout": "30s"
+  },
+  "database": {
+    "driver": "postgres",
+    "host": "db.example.com",
+    "port": 5432,
+    "name": "testdb",
+    "user": "testuser",
+    "password": "testpass",
+    "ssl_mode": "disable",
+    "max_idle_time": "5m"
+  },
+  "api": {
+    "endpoint": "https://api.example.com",
+    "timeout": "1m",
+    "max_retries": 4,
+    "retry_delay": "10s",
+    "enable_cache": true
+  }
+}

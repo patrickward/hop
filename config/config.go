@@ -265,3 +265,13 @@ func BasicFlags(fs *flag.FlagSet) {
 	fs.String("env", "development", "Environment (development, staging, production)")
 	fs.Bool("debug", false, "Enable debug mode")
 }
+
+// ApplyFlagOverrides ensures that if a basic flag is set, it overrides the config
+func ApplyFlagOverrides(cfg *BaseConfig, fs *flag.FlagSet) {
+	if fs.Lookup("debug").Value.String() == "true" {
+		cfg.Debug = true
+	}
+	if fs.Lookup("env").Value.String() != "" {
+		cfg.Environment = fs.Lookup("env").Value.String()
+	}
+}

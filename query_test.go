@@ -1,10 +1,10 @@
-package httpgo_test
+package hypercore_test
 
 import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/patrickward/httpgo"
+	"github.com/patrickward/hypercore"
 )
 
 func TestQueryString(t *testing.T) {
@@ -20,7 +20,7 @@ func TestQueryString(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest("GET", "/?key="+tt.queryVal, nil)
-			val := httpgo.QueryString(req, "key")
+			val := hypercore.QueryString(req, "key")
 			if val != tt.expVal {
 				t.Errorf("expected %s, got %s", tt.expVal, val)
 			}
@@ -42,7 +42,7 @@ func TestQueryInt64(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest("GET", "/?key="+tt.queryVal, nil)
-			val := httpgo.QueryInt64(req, "key")
+			val := hypercore.QueryInt64(req, "key")
 			if val != tt.expVal {
 				t.Errorf("expected %d, got %d", tt.expVal, val)
 			}
@@ -64,7 +64,7 @@ func TestQueryFloat64(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest("GET", "/?key="+tt.queryVal, nil)
-			val := httpgo.QueryFloat64(req, "key")
+			val := hypercore.QueryFloat64(req, "key")
 			if val != tt.expVal {
 				t.Errorf("expected %f, got %f", tt.expVal, val)
 			}
@@ -87,7 +87,7 @@ func TestQueryBool(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest("GET", "/?key="+tt.queryVal, nil)
-			val := httpgo.QueryBool(req, "key")
+			val := hypercore.QueryBool(req, "key")
 			if val != tt.expVal {
 				t.Errorf("expected %t, got %t", tt.expVal, val)
 			}

@@ -1,4 +1,4 @@
-module github.com/patrickward/httpgo
+module github.com/patrickward/hypercore
 
 go 1.23.1
 

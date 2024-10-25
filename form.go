@@ -1,4 +1,4 @@
-package httpgo
+package hypercore
 
 import (
 	"errors"

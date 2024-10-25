@@ -1,4 +1,4 @@
-package httpgo_test
+package hypercore_test
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/patrickward/httpgo"
+	"github.com/patrickward/hypercore"
 )
 
 func TestDecodeJSON(t *testing.T) {
@@ -80,7 +80,7 @@ func TestDecodeJSON(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			r := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(test.srcJSON))
 			w := httptest.NewRecorder()
-			err := httpgo.DecodeJSON(w, r, test.target)
+			err := hypercore.DecodeJSON(w, r, test.target)
 			if err != nil && test.err == nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
@@ -133,7 +133,7 @@ func TestDecodeJSONStrict(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			r := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(test.srcJSON))
 			w := httptest.NewRecorder()
-			err := httpgo.DecodeJSONStrict(w, r, test.target)
+			err := hypercore.DecodeJSONStrict(w, r, test.target)
 			if err != nil && test.err == nil {
 				t.Errorf("unexpected error: %v", err)
 			}

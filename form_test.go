@@ -1,4 +1,4 @@
-package httpgo_test
+package hypercore_test
 
 import (
 	"net/http"
@@ -8,7 +8,7 @@ import (
 	"github.com/go-playground/form/v4"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/patrickward/httpgo"
+	"github.com/patrickward/hypercore"
 )
 
 type TestData struct {
@@ -36,7 +36,7 @@ func TestDecodeForm(t *testing.T) {
 			req, _ := http.NewRequest("GET", tc.url, nil)
 			req.Form = form
 			var dst TestData
-			err := httpgo.DecodeForm(req, &dst)
+			err := hypercore.DecodeForm(req, &dst)
 
 			assert.Equal(t, tc.err, err)
 			assert.Equal(t, tc.expected, dst)
@@ -63,7 +63,7 @@ func TestDecodePostForm(t *testing.T) {
 			req, _ := http.NewRequest("POST", tc.url, nil)
 			req.PostForm = form
 			var dst TestData
-			err := httpgo.DecodePostForm(req, &dst)
+			err := hypercore.DecodePostForm(req, &dst)
 
 			assert.Equal(t, tc.err, err)
 			assert.Equal(t, tc.expected, dst)
@@ -86,7 +86,7 @@ func TestDecodeQueryString(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			req, _ := http.NewRequest("GET", tc.url, nil)
 			var dst TestData
-			err := httpgo.DecodeQueryString(req, &dst)
+			err := hypercore.DecodeQueryString(req, &dst)
 
 			assert.Equal(t, tc.err, err)
 			assert.Equal(t, tc.expected, dst)

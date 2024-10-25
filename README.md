@@ -1,4 +1,4 @@
-# httpgo
+# HyperCore - Experimental
 
 Simple HTTP helpers and middleware for my Go projects. This is essentially a collection of useful functions and
 middleware that I've found myself reusing in multiple projects. It uses some 3rd party libraries, but I've tried to keep

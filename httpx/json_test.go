@@ -1,4 +1,4 @@
-package hypercore_test
+package httpx_test
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/patrickward/hypercore"
+	http2 "github.com/patrickward/hypercore/httpx"
 )
 
 func TestDecodeJSON(t *testing.T) {
@@ -80,7 +80,7 @@ func TestDecodeJSON(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			r := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(test.srcJSON))
 			w := httptest.NewRecorder()
-			err := hypercore.DecodeJSON(w, r, test.target)
+			err := http2.DecodeJSON(w, r, test.target)
 			if err != nil && test.err == nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
@@ -133,7 +133,7 @@ func TestDecodeJSONStrict(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			r := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(test.srcJSON))
 			w := httptest.NewRecorder()
-			err := hypercore.DecodeJSONStrict(w, r, test.target)
+			err := http2.DecodeJSONStrict(w, r, test.target)
 			if err != nil && test.err == nil {
 				t.Errorf("unexpected error: %v", err)
 			}

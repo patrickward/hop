@@ -1,4 +1,4 @@
-package hypercore
+package httpx
 
 import (
 	"net/http"

@@ -1,4 +1,4 @@
-package hypercore_test
+package httpx_test
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/patrickward/hypercore"
+	http2 "github.com/patrickward/hypercore/httpx"
 )
 
 func fakeRender(w http.ResponseWriter, _ *http.Request, err error) {
@@ -54,7 +54,7 @@ func TestRecoverPanic(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			assert.NotPanics(t, func() {
-				hypercore.RecoverPanic(setting.render)(setting.handler).ServeHTTP(w, r)
+				http2.RecoverPanic(setting.render)(setting.handler).ServeHTTP(w, r)
 			})
 
 			assert.Equal(t, setting.expectedOutput, w.Body.String())
@@ -65,7 +65,7 @@ func TestRecoverPanic(t *testing.T) {
 func TestSecurityHeaders(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
-	hypercore.SecurityHeaders(fakeHandler()).ServeHTTP(w, r)
+	http2.SecurityHeaders(fakeHandler()).ServeHTTP(w, r)
 
 	assert.Equal(t, "origin-when-cross-origin", w.Header().Get("Referrer-Policy"))
 	assert.Equal(t, "nosniff", w.Header().Get("X-Content-Type-Options"))
@@ -76,7 +76,7 @@ func TestSecurityHeaders(t *testing.T) {
 func TestContentSecurityPolicy(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
-	hypercore.ContentSecurityPolicy(nil)(fakeHandler()).ServeHTTP(w, r)
+	http2.ContentSecurityPolicy(nil)(fakeHandler()).ServeHTTP(w, r)
 
 	policy := "default-src 'none';font-src 'self';img-src 'self';script-src 'self';style-src 'self'"
 	assert.Equal(t, policy, w.Header().Get("Content-Security-Policy"))
@@ -93,6 +93,6 @@ func TestPreventCSRF(t *testing.T) {
 		HttpOnly: true,
 	})
 
-	hypercore.PreventCSRF(fakeHandler()).ServeHTTP(w, r)
+	http2.PreventCSRF(fakeHandler()).ServeHTTP(w, r)
 	assert.Equal(t, "fakeHandler", w.Body.String())
 }

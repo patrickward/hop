@@ -1,4 +1,4 @@
-package hypercore
+package httpx
 
 import (
 	"errors"

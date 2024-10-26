@@ -1,4 +1,4 @@
-package hop
+package decode
 
 import (
 	"encoding/json"
@@ -9,15 +9,15 @@ import (
 	"strings"
 )
 
-// DecodeJSON decodes the JSON in an HTTP request into a struct.
+// JSON decodes the JSON in an HTTP request into a struct.
 // From: autostrada.dev
-func DecodeJSON(w http.ResponseWriter, r *http.Request, dst interface{}) error {
+func JSON(w http.ResponseWriter, r *http.Request, dst interface{}) error {
 	return decodeJSON(w, r, dst, false)
 }
 
-// DecodeJSONStrict decodes the JSON in an HTTP request into a struct, and
+// JSONStrict decodes the JSON in an HTTP request into a struct, and
 // From: autostrada.dev
-func DecodeJSONStrict(w http.ResponseWriter, r *http.Request, dst interface{}) error {
+func JSONStrict(w http.ResponseWriter, r *http.Request, dst interface{}) error {
 	return decodeJSON(w, r, dst, true)
 }
 

@@ -1,4 +1,4 @@
-package hop_test
+package decode_test
 
 import (
 	"net/http"
@@ -8,7 +8,7 @@ import (
 	"github.com/go-playground/form/v4"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/patrickward/hop"
+	"github.com/patrickward/hop/decode"
 )
 
 type TestData struct {
@@ -17,7 +17,7 @@ type TestData struct {
 
 var decoder = form.NewDecoder()
 
-func TestDecodeForm(t *testing.T) {
+func TestForm(t *testing.T) {
 	tt := []struct {
 		name     string
 		url      string
@@ -36,7 +36,7 @@ func TestDecodeForm(t *testing.T) {
 			req, _ := http.NewRequest("GET", tc.url, nil)
 			req.Form = form
 			var dst TestData
-			err := hop.DecodeForm(req, &dst)
+			err := decode.Form(req, &dst)
 
 			assert.Equal(t, tc.err, err)
 			assert.Equal(t, tc.expected, dst)
@@ -44,7 +44,7 @@ func TestDecodeForm(t *testing.T) {
 	}
 }
 
-func TestDecodePostForm(t *testing.T) {
+func TestPostForm(t *testing.T) {
 	tt := []struct {
 		name     string
 		url      string
@@ -63,30 +63,7 @@ func TestDecodePostForm(t *testing.T) {
 			req, _ := http.NewRequest("POST", tc.url, nil)
 			req.PostForm = form
 			var dst TestData
-			err := hop.DecodePostForm(req, &dst)
-
-			assert.Equal(t, tc.err, err)
-			assert.Equal(t, tc.expected, dst)
-		})
-	}
-}
-
-func TestDecodeQueryString(t *testing.T) {
-	tt := []struct {
-		name     string
-		url      string
-		expected TestData
-		err      error
-	}{
-		{"Valid Query String", "http://localhost?field=value", TestData{Field: "value"}, nil},
-		{"Invalid Query String", "http://localhost?invalid_field=value", TestData{}, nil},
-	}
-
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			req, _ := http.NewRequest("GET", tc.url, nil)
-			var dst TestData
-			err := hop.DecodeQueryString(req, &dst)
+			err := decode.PostForm(req, &dst)
 
 			assert.Equal(t, tc.err, err)
 			assert.Equal(t, tc.expected, dst)

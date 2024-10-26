@@ -1,10 +1,15 @@
-package hop
+package decode
 
 import (
 	"net/http"
 	"strconv"
 	"strings"
 )
+
+// Query decodes the query string values in an HTTP request into a struct.
+func Query(r *http.Request, dst any) error {
+	return decodeURLValues(r.URL.Query(), dst)
+}
 
 // QueryString returns the value of a query string parameter in an HTTP request.
 func QueryString(r *http.Request, key string) string {

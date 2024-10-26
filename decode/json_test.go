@@ -1,4 +1,4 @@
-package hop_test
+package decode_test
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/patrickward/hop"
+	"github.com/patrickward/hop/decode"
 )
 
 func TestDecodeJSON(t *testing.T) {
@@ -80,7 +80,7 @@ func TestDecodeJSON(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			r := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(test.srcJSON))
 			w := httptest.NewRecorder()
-			err := hop.DecodeJSON(w, r, test.target)
+			err := decode.JSON(w, r, test.target)
 			if err != nil && test.err == nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
@@ -133,7 +133,7 @@ func TestDecodeJSONStrict(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			r := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(test.srcJSON))
 			w := httptest.NewRecorder()
-			err := hop.DecodeJSONStrict(w, r, test.target)
+			err := decode.JSONStrict(w, r, test.target)
 			if err != nil && test.err == nil {
 				t.Errorf("unexpected error: %v", err)
 			}

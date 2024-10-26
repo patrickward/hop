@@ -20,7 +20,7 @@ type Chain struct {
 
 // New creates a new middleware chain, memoizing the middlewares
 func New(middleware ...Middleware) Chain {
-	return Chain{middlewares: middleware}
+	return Chain{append(([]Middleware)(nil), middleware...)}
 }
 
 // Extend adds a chain by adding the provided chain's middleware to the current chain
@@ -45,7 +45,7 @@ func (c Chain) Extend(chain Chain) Chain {
 // Example:
 // chain := wrap.New(middleware1).Append(middleware2, middleware3)
 func (c Chain) Append(middleware ...Middleware) Chain {
-	newMid := make([]Middleware, len(c.middlewares)+len(middleware))
+	newMid := make([]Middleware, 0, len(c.middlewares)+len(middleware))
 	newMid = append(newMid, c.middlewares...)
 	newMid = append(newMid, middleware...)
 	return Chain{middlewares: newMid}
@@ -73,6 +73,8 @@ func (c Chain) Then(h http.Handler) http.Handler {
 // pipe1 := chain.ThenFunc(myHandlerFunc)
 // pipe2 : = chain.ThenFunc(anotherHandlerFunc)
 func (c Chain) ThenFunc(fn http.HandlerFunc) http.Handler {
+	// This nil check cannot be removed due to the "nil is not nil" common mistake in Go.
+	// Required due to: https://stackoverflow.com/questions/33426977/how-to-golang-check-a-variable-is-nil
 	if fn == nil {
 		return c.Then(nil)
 	}
@@ -85,6 +87,10 @@ func (c Chain) ThenFunc(fn http.HandlerFunc) http.Handler {
 // Example:
 // h := wrap.Around(myHandler, middleware1, middleware2) // h is now wrapped with middleware1 and middleware2
 func Around(h http.Handler, middleware ...Middleware) http.Handler {
+	if h == nil {
+		h = http.DefaultServeMux
+	}
+
 	for i := len(middleware) - 1; i >= 0; i-- {
 		h = middleware[i](h)
 	}

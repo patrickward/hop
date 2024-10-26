@@ -96,6 +96,12 @@ func (s *Server) AddRoute(pattern string, handler http.Handler, middleware ...wr
 	s.router.Handle(pattern, handler)
 }
 
+// AddChainedRoute adds a new route to the server with a chain of middleware
+// It takes a pattern, an http.Handler, and a wrap.Chain struct
+func (s *Server) AddChainedRoute(pattern string, handler http.Handler, chain wrap.Chain) {
+	s.router.Handle(pattern, chain.Then(handler))
+}
+
 // AddRoutes adds multiple routes to the server. It takes a map of patterns to http.Handlers and an optional list of middleware.
 func (s *Server) AddRoutes(routes map[string]http.Handler, middleware ...wrap.Middleware) {
 	for pattern, handler := range routes {
@@ -104,6 +110,13 @@ func (s *Server) AddRoutes(routes map[string]http.Handler, middleware ...wrap.Mi
 			continue
 		}
 		s.AddRoute(pattern, handler)
+	}
+}
+
+// AddChainedRoutes adds multiple routes to the server with a chain of middleware
+func (s *Server) AddChainedRoutes(routes map[string]http.Handler, chain wrap.Chain) {
+	for pattern, handler := range routes {
+		s.AddChainedRoute(pattern, handler, chain)
 	}
 }
 

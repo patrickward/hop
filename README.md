@@ -17,18 +17,11 @@ of the project are:
 - Have just enough structure to get going quickly
 - Be flexible and extensible
 
-## Features
-
-- `form.go` - Form parsing routines that use
-  the [github.com/go-playground/form/v4](https://github.com/go-playground/form)
-  library.
-- `json.go` - JSON parsing routines that use the standard library.
-- `query.go` - Query parsing routines that use the standard library.
-
 ## Sub-packages
 
 - `chain` - Middleware routines that mostly use the standard library.
 - `conf` - A simple configuration manager that uses the standard library's `encoding/json` package, env variables, and flags.
+- `decode` - A collection of decoding functions for various data types and formats (e.g. forms, json, etc).
 - `log` - A wrapper to set up a logger using the standard library's `slog` package.
 - `render` - A simple view manager for rendering HTML templates. It uses the [html/template](https://pkg.go.dev/html/template) package from the standard library.
 - `serve` - A simple HTTP server with basic routing and middleware support.
@@ -40,7 +33,6 @@ of the project are:
 
 - `auth` - Authentication and authorization middleware.
 - `cache` - Caching/temporary storage middleware, helpers, and persistent key-value storage.
-- `encode` - A collection of encoding and decoding functions for various data types and formats (e.g. forms, json, etc).
 - `keep` - A collection of helpers for keeping track of state and data across requests.
 - `mail` - Email sending and receiving helpers.
 - `query` - Database operations and helpers.

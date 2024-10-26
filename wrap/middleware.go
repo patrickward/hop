@@ -1,5 +1,5 @@
-// Package chain provides middleware functions for HTTP handlers, including security headers, CSRF protection, and panic recovery.
-package chain
+// Package wrap provides middleware functions for HTTP handlers, including security headers, CSRF protection, and panic recovery.
+package wrap
 
 import (
 	"fmt"
@@ -10,11 +10,13 @@ import (
 )
 
 // Middleware is a type that represents a middleware function.
-type Middleware = func(next http.Handler) http.Handler
+//type Middleware = func(next http.Handler) http.Handler
 
-// RecoverPanic recovers from a panic and renders a system error page.
+// type Middleware func(http.Handler) http.Handler
+
+// Recovery recovers from a panic and renders a system error page.
 // The render function is passed as an argument to the middleware and used to render the error page.
-func RecoverPanic(render func(http.ResponseWriter, *http.Request, error)) Middleware {
+func Recovery(render func(http.ResponseWriter, *http.Request, error)) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {

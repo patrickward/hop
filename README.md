@@ -27,17 +27,24 @@ of the project are:
 
 ## Sub-packages
 
-- `auth` - (future) Authentication and authorization middleware.
-- `cache` - (future) Caching middleware and helpers.
 - `chain` - Middleware routines that mostly use the standard library.
-- `check` - A collection of validation functions for various data types.
 - `conf` - A simple configuration manager that uses the standard library's `encoding/json` package, env variables, and flags.
-- `encode` - (future) A collection of encoding and decoding functions for various data types and formats (e.g. forms, json, etc).
-- `keep` - (future) Session management interfaces, helpers, and middleware.
 - `log` - A wrapper to set up a logger using the standard library's `slog` package.
-- `mail` - (future) Email sending and receiving helpers.
 - `render` - A simple view manager for rendering HTML templates. It uses the [html/template](https://pkg.go.dev/html/template) package from the standard library.
 - `serve` - A simple HTTP server with basic routing and middleware support.
+- `sess` - Session management interfaces, helpers, and middleware.
+- `wrap` - A collection of validation functions for various data types.
+
+
+### Brainstorming future sub-packages
+
+- `auth` - Authentication and authorization middleware.
+- `cache` - Caching/temporary storage middleware, helpers, and persistent key-value storage.
+- `encode` - A collection of encoding and decoding functions for various data types and formats (e.g. forms, json, etc).
+- `keep` - A collection of helpers for keeping track of state and data across requests.
+- `mail` - Email sending and receiving helpers.
+- `query` - Database operations and helpers.
+- `save` - File upload and storage helpers.
 
 ## TODO
 

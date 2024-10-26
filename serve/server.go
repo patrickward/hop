@@ -13,12 +13,12 @@ import (
 	"time"
 
 	"github.com/alexedwards/scs/v2"
-	"github.com/justinas/alice"
 	"github.com/justinas/nosurf"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/patrickward/hop/conf"
 	"github.com/patrickward/hop/render"
+	"github.com/patrickward/hop/wrap"
 )
 
 // CleanupFunc is a function type that can be used for cleanup tasks when the server shuts down.
@@ -86,9 +86,10 @@ func (s *Server) TM() *render.TemplateManager {
 }
 
 // AddRoute adds a new route to the server, using the newer v1.22 http.Handler interface. It takes a pattern, an http.Handler, and an optional list of middleware.
-func (s *Server) AddRoute(pattern string, handler http.Handler, middleware ...alice.Constructor) {
+func (s *Server) AddRoute(pattern string, handler http.Handler, middleware ...wrap.Middleware) {
 	if len(middleware) > 0 {
-		chain := alice.New(middleware...).Then(handler)
+		// Create a chain of middleware and wrap the handler
+		chain := wrap.New(middleware...).Then(handler)
 		s.router.Handle(pattern, chain)
 		return
 	}
@@ -96,7 +97,7 @@ func (s *Server) AddRoute(pattern string, handler http.Handler, middleware ...al
 }
 
 // AddRoutes adds multiple routes to the server. It takes a map of patterns to http.Handlers and an optional list of middleware.
-func (s *Server) AddRoutes(routes map[string]http.Handler, middleware ...alice.Constructor) {
+func (s *Server) AddRoutes(routes map[string]http.Handler, middleware ...wrap.Middleware) {
 	for pattern, handler := range routes {
 		if len(middleware) > 0 {
 			s.AddRoute(pattern, handler, middleware...)

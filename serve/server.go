@@ -178,12 +178,11 @@ func (s *Server) NewTemplateData(r *http.Request) map[string]any {
 
 // Start starts the server and listens for incoming requests. It will block until the server is shut down.
 func (s *Server) Start() error {
-	// Create base context with signal handling
 	ctx, stop := signal.NotifyContext(context.Background(),
 		syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer stop()
 
-	// Create errgroup with signal context
+	// Crete errgroup with signal context
 	eg, gCtx := errgroup.WithContext(ctx)
 
 	// Start HTTP server
@@ -202,15 +201,49 @@ func (s *Server) Start() error {
 	eg.Go(func() error {
 		<-gCtx.Done()
 
-		shutdownCtx, shutdownCancel := context.WithTimeout(
-			context.Background(),
-			s.config.Server.ShutdownTimeout.Duration,
-		)
-		defer shutdownCancel()
-
 		s.logger.Info("initiating graceful shutdown",
 			slog.String("cause", gCtx.Err().Error()))
 
+		// Split the shutdown timeout between WaitGroup and server shutdown
+		totalTimeout := s.config.Server.ShutdownTimeout.Duration
+		wgTimeout := totalTimeout / 2
+		serverTimeout := totalTimeout - wgTimeout
+
+		// Create a channel to signal WaitGroup completion
+		wgDone := make(chan struct{})
+
+		// Wait for background tasks in a separate goroutine
+		go func() {
+			s.logger.Info("waiting for background tasks to complete",
+				slog.Duration("timeout", wgTimeout))
+			s.wg.Wait()
+			close(wgDone)
+		}()
+
+		// Create context for WaitGroup timeout
+		wgCtx, wgCancel := context.WithTimeout(context.Background(), wgTimeout)
+		defer wgCancel()
+
+		// Wait for either WaitGroup completion or timeout
+		select {
+		case <-wgDone:
+			s.logger.Info("all background tasks completed")
+		case <-wgCtx.Done():
+			s.logger.Warn("timeout waiting for background tasks",
+				slog.Duration("elapsed", wgTimeout))
+		}
+
+		// Create context for server shutdown
+		shutdownCtx, shutdownCancel := context.WithTimeout(
+			context.Background(),
+			serverTimeout,
+		)
+		defer shutdownCancel()
+
+		s.logger.Info("shutting down http server",
+			slog.Duration("timeout", serverTimeout))
+
+		// Proceed with server shutdown
 		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
 			return fmt.Errorf("shutdown error: %w", err)
 		}
@@ -222,7 +255,7 @@ func (s *Server) Start() error {
 		return nil
 	})
 
-	// Wait for all goroutines to complete or error
+	// Wait for all errgroup goroutines to complete or error
 	if err := eg.Wait(); err != nil &&
 		!errors.Is(err, context.Canceled) {
 		return fmt.Errorf("server error: %w", err)
@@ -230,5 +263,4 @@ func (s *Server) Start() error {
 
 	s.logger.Info("server exited")
 	return nil
-
 }

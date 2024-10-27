@@ -61,7 +61,7 @@ type SMPTConfig struct {
 	Port     int    `json:"port" env:"SMTP_PORT" default:"1025"`
 	Username string `json:"username" env:"SMTP_USERNAME" default:""`
 	Password string `json:"password" env:"SMTP_PASSWORD" default:""`
-	From     string `json:"from" env:"SMTP_FROM" default:"`
+	From     string `json:"from" env:"SMTP_FROM" default:""`
 }
 
 type LogConfig struct {

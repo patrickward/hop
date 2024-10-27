@@ -188,15 +188,15 @@ func (tm *TemplateManager) loadLayoutsAndPartials() (*template.Template, error) 
 	return commonTemplates, nil
 }
 
-func (tm *TemplateManager) printTemplateNames() {
-	for name, tmpl := range tm.templates {
-		tm.log(logLevelInfo, "Template", slog.String("name", name))
-		associatedTemplates := tmpl.Templates()
-		for _, tmpl := range associatedTemplates {
-			tm.log(logLevelInfo, "    Partial/Child", slog.String("name", tmpl.Name()))
-		}
-	}
-}
+//func (tm *TemplateManager) printTemplateNames() {
+//	for name, tmpl := range tm.templates {
+//		tm.log(logLevelInfo, "Template", slog.String("name", name))
+//		associatedTemplates := tmpl.Templates()
+//		for _, tmpl := range associatedTemplates {
+//			tm.log(logLevelInfo, "    Partial/Child", slog.String("name", tmpl.Name()))
+//		}
+//	}
+//}
 
 func (tm *TemplateManager) handleError(w http.ResponseWriter, r *http.Request, err error) {
 	if err != nil {
@@ -206,7 +206,6 @@ func (tm *TemplateManager) handleError(w http.ResponseWriter, r *http.Request, e
 }
 
 func (tm *TemplateManager) render(w http.ResponseWriter, r *http.Request, resp *Response) {
-	//path := tm.pathWithExtension(resp.TemplatePath())
 	path := resp.TemplatePath()
 	tmpl, ok := tm.templates[path]
 	if !ok {
@@ -247,24 +246,6 @@ func (tm *TemplateManager) render(w http.ResponseWriter, r *http.Request, resp *
 func (tm *TemplateManager) viewsPath(path ...string) string {
 	// For each path, append to the ViewsDir, separated by a slash
 	return fmt.Sprintf("%s/%s", ViewsDir, strings.Join(path, "/"))
-}
-
-// pathWithExtension returns the path for the page template with the appropriate extension added.
-func (tm *TemplateManager) pathWithExtension(path string) string {
-	// Clean the path and add the extension
-	curPath := strings.TrimSpace(path)
-
-	// If the path is empty, return the default page path
-	if curPath == "" {
-		return fmt.Sprintf("home.%s", tm.extension)
-	}
-
-	// If the path does not have an extension, add the configured extension
-	if filepath.Ext(curPath) == "" {
-		return fmt.Sprintf("%s%s", curPath, tm.extension)
-	}
-
-	return curPath
 }
 
 type logLevel string

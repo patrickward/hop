@@ -23,11 +23,11 @@ import (
 //
 //goland:noinspection GoNameStartsWithPackageName
 type ResponseData struct {
-	title       string
-	request     *http.Request
-	pageData    map[string]any
-	csrfToken   string
-	environment string
+	title    string
+	request  *http.Request
+	pageData map[string]any
+	//environment string
+	//csrfToken   string
 }
 
 // NewResponseData creates a new Data instance.

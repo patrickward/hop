@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/go-playground/form/v4"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/patrickward/hop/decode"
@@ -14,8 +13,6 @@ import (
 type TestData struct {
 	Field string `form:"field"`
 }
-
-var decoder = form.NewDecoder()
 
 func TestForm(t *testing.T) {
 	tt := []struct {

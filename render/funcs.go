@@ -100,10 +100,8 @@ func DefaultFuncMap() template.FuncMap {
 // kv is a helper function that creates a key-value pair and merges it with another map, if provided.
 func kv(k string, v any, other map[string]any) map[string]any {
 	result := map[string]any{k: v}
-	if other != nil {
-		for key, value := range other {
-			result[key] = value
-		}
+	for key, value := range other {
+		result[key] = value
 	}
 	return result
 }

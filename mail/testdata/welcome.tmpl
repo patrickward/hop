@@ -1,0 +1,22 @@
+// testdata/welcome.tmpl
+{{define "subject"}}Welcome to {{.Company}}{{end}}
+
+{{define "plainBody"}}
+    Welcome {{.Name}}!
+
+    We're excited to have you join {{.Company}}.
+
+    Best regards,
+    The Team
+{{end}}
+
+{{define "htmlBody"}}
+<!DOCTYPE html>
+<html>
+<body>
+    <h1>Welcome {{.Name}}!</h1>
+    <p>We're excited to have you join {{.Company}}.</p>
+    <p>Best regards,<br>The Team</p>
+</body>
+</html>
+{{end}}

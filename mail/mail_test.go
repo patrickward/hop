@@ -47,7 +47,7 @@ func TestMailer(t *testing.T) {
 		HTMLProcessor: &mockHTMLProcessor{},
 	}
 
-	mailer, err := mail.New(cfg)
+	mailer, err := mail.NewMailer(cfg)
 	if err != nil {
 		t.Fatalf("Failed to create mailer: %v", err)
 	}
@@ -162,7 +162,7 @@ func TestMailer_Errors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mailer, err := mail.New(tt.cfg)
+			mailer, err := mail.NewMailer(tt.cfg)
 			if err != nil {
 				t.Fatalf("Failed to create mailer: %v", err)
 			}

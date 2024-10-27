@@ -16,6 +16,7 @@ import (
 type BaseConfig struct {
 	Environment string            `json:"environment" env:"APP_ENV" default:"development"`
 	Debug       bool              `json:"debug" env:"APP_DEBUG" default:"false"`
+	Company     CompanyConfig     `json:"company"`
 	Maintenance MaintenanceConfig `json:"maintenance"`
 	Server      ServerConfig      `json:"server"`
 	Database    DatabaseConfig    `json:"database"`
@@ -57,11 +58,26 @@ type DatabaseConfig struct {
 }
 
 type SMPTConfig struct {
-	Host     string `json:"host" env:"SMTP_HOST" default:"localhost"`
-	Port     int    `json:"port" env:"SMTP_PORT" default:"1025"`
-	Username string `json:"username" env:"SMTP_USERNAME" default:""`
-	Password string `json:"password" env:"SMTP_PASSWORD" default:""`
-	From     string `json:"from" env:"SMTP_FROM" default:""`
+	Host       string   `json:"host" env:"SMTP_HOST" default:"localhost"`
+	Port       int      `json:"port" env:"SMTP_PORT" default:"1025"`
+	Username   string   `json:"username" env:"SMTP_USERNAME" default:""`
+	Password   string   `json:"password" env:"SMTP_PASSWORD" default:""`
+	From       string   `json:"from" env:"SMTP_FROM" default:""`
+	AuthType   string   `json:"auth_type" env:"SMTP_AUTH_TYPE" default:"LOGIN"`
+	TLSPolicy  int      `json:"tls_policy" env:"SMTP_TLS_POLICY" default:"1"`
+	RetryCount int      `json:"retry_count" env:"SMTP_RETRY_COUNT" default:"3"`
+	RetryDelay Duration `json:"retry_delay" env:"SMTP_RETRY_DELAY" default:"5s"`
+}
+
+type CompanyConfig struct {
+	CompanyAddress string `json:"company_address" env:"COMPANY_ADDRESS" default:""`
+	CompanyName    string `json:"company_name" env:"COMPANY_NAME" default:""`
+	LogoURL        string `json:"logo_url" env:"LOGO_URL" default:""`
+	SupportEmail   string `json:"support_email" env:"SUPPORT_EMAIL" default:""`
+	WebsiteName    string `json:"website_name" env:"WEBSITE_NAME" default:""`
+	WebsiteURL     string `json:"website_url" env:"WEBSITE_URL" default:""`
+	//SiteLinks        map[string]string `json:"site_links" env:"SITE_LINKS" default:"{}"`
+	//SocialMediaLinks map[string]string `json:"social_media_links" env:"SOCIAL_MEDIA_LINKS" default:"{}"`
 }
 
 type LogConfig struct {

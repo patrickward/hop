@@ -45,7 +45,7 @@ func TestWelcomeEmailSender_Send(t *testing.T) {
 		TemplateFS: testFS,
 	}
 
-	mailer, err := mail.New(cfg)
+	mailer, err := mail.NewMailer(cfg)
 	if err != nil {
 		t.Fatalf("Failed to create mailer: %v", err)
 	}

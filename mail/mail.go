@@ -1,4 +1,4 @@
-// mail.go
+// Package mail provides a simple mailer that sends emails using the SMTP protocol.
 package mail
 
 import (
@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"strings"
 	"time"
 
 	gomail "github.com/wneessen/go-mail"
@@ -20,15 +21,37 @@ var (
 
 // Config holds the mailer configuration
 type Config struct {
-	Host          string
-	Port          int
-	Username      string
-	Password      string
-	From          string
-	TemplateFS    fs.FS
-	RetryCount    int
-	RetryDelay    time.Duration
-	HTMLProcessor HTMLProcessor
+	// SMTP server configuration
+	Host      string // SMTP server host
+	Port      int    // SMTP server port
+	Username  string // SMTP server username
+	Password  string // SMTP server password
+	From      string // From address
+	AuthType  string // Type of SMTP authentication (see the go-mail package for options). Default is LOGIN.
+	TLSPolicy int    // TLS policy for the SMTP connection (see the go-mail package for options). Default is opportunistic.
+
+	// Template configuration
+	TemplateFS   fs.FS  // File system for templates
+	TemplatePath string // Path to the templates directory in the file system
+
+	// Retry configuration
+	RetryCount int           // Number of retry attempts for sending email
+	RetryDelay time.Duration // Delay between retry attempts
+
+	// HTML processor for processing HTML content
+	HTMLProcessor HTMLProcessor // HTML processor for processing HTML content
+
+	// Company/Branding
+	CompanyAddress string // Company address
+	CompanyName    string // Company name
+	LogoURL        string // URL to the company logo
+	SupportEmail   string // Support email address
+	WebsiteName    string // Name of the website
+	WebsiteURL     string // URL to the company website. This should be the base URL of the website.
+
+	// Links
+	SiteLinks        map[string]string // Site links
+	SocialMediaLinks map[string]string // Social media links
 }
 
 // HTMLProcessor defines the interface for processing HTML content
@@ -47,7 +70,7 @@ func (p *DefaultHTMLProcessor) Process(html string) (string, error) {
 type EmailMessage struct {
 	To           []string
 	Template     string
-	TemplateData interface{}
+	TemplateData any
 	Attachments  []Attachment
 }
 
@@ -65,8 +88,8 @@ type Mailer struct {
 	htmlProcessor HTMLProcessor
 }
 
-// New creates a new Mailer instance
-func New(cfg *Config) (*Mailer, error) {
+// NewMailer creates a new Mailer instance
+func NewMailer(cfg *Config) (*Mailer, error) {
 	if cfg.RetryCount == 0 {
 		cfg.RetryCount = 3
 	}
@@ -77,12 +100,17 @@ func New(cfg *Config) (*Mailer, error) {
 		cfg.HTMLProcessor = &DefaultHTMLProcessor{}
 	}
 
+	authType := authTypeFromString(cfg.AuthType)
+	tlsPolicy := tlsPolicyFromInt(cfg.TLSPolicy)
+
 	client, err := gomail.NewClient(
 		cfg.Host,
+		gomail.WithTimeout(10*time.Second),
+		gomail.WithSMTPAuth(authType),
 		gomail.WithPort(cfg.Port),
 		gomail.WithUsername(cfg.Username),
 		gomail.WithPassword(cfg.Password),
-		gomail.WithTLSPolicy(gomail.TLSOpportunistic),
+		gomail.WithTLSPolicy(tlsPolicy),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create mail client: %w", err)
@@ -93,6 +121,11 @@ func New(cfg *Config) (*Mailer, error) {
 		client:        client,
 		htmlProcessor: cfg.HTMLProcessor,
 	}, nil
+}
+
+// Config returns the mailer configuration
+func (m *Mailer) Config() *Config {
+	return m.config
 }
 
 // Send sends an email using the provided template and data
@@ -127,7 +160,12 @@ func (m *Mailer) setAddresses(email *gomail.Msg, to []string) error {
 }
 
 func (m *Mailer) processTemplates(email *gomail.Msg, msg *EmailMessage) error {
-	tmpl, err := template.New("").ParseFS(m.config.TemplateFS, msg.Template)
+	templatePath := msg.Template
+	if m.config.TemplatePath != "" {
+		templatePath = strings.TrimSuffix(m.config.TemplatePath, "/") + "/" + msg.Template
+	}
+
+	tmpl, err := template.New("").ParseFS(m.config.TemplateFS, templatePath)
 	if err != nil {
 		return fmt.Errorf("failed to parse template: %w", err)
 	}
@@ -155,7 +193,7 @@ func (m *Mailer) processTemplates(email *gomail.Msg, msg *EmailMessage) error {
 	return m.setBodies(email, plainBody, htmlBody)
 }
 
-func (m *Mailer) executeTemplate(tmpl *template.Template, name string, data interface{}) (*bytes.Buffer, error) {
+func (m *Mailer) executeTemplate(tmpl *template.Template, name string, data any) (*bytes.Buffer, error) {
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, name, data); err != nil {
 		return nil, err
@@ -163,7 +201,7 @@ func (m *Mailer) executeTemplate(tmpl *template.Template, name string, data inte
 	return &buf, nil
 }
 
-func (m *Mailer) processBodies(tmpl *template.Template, data interface{}) (*bytes.Buffer, *bytes.Buffer, error) {
+func (m *Mailer) processBodies(tmpl *template.Template, data any) (*bytes.Buffer, *bytes.Buffer, error) {
 	plainBody, err := m.executeTemplate(tmpl, "plainBody", data)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to execute plain body template: %w", err)
@@ -231,4 +269,44 @@ func (m *Mailer) sendWithRetry(email *gomail.Msg) error {
 		}
 	}
 	return fmt.Errorf("failed to send email after %d attempts: %w", m.config.RetryCount, lastErr)
+}
+
+func authTypeFromString(typ string) gomail.SMTPAuthType {
+	switch typ {
+	case "PLAIN":
+		return gomail.SMTPAuthPlain
+	case "LOGIN":
+		return gomail.SMTPAuthLogin
+	case "CRAM-MD5":
+		return gomail.SMTPAuthCramMD5
+	case "NOAUTH":
+		return gomail.SMTPAuthNoAuth
+	case "XOAUTH2":
+		return gomail.SMTPAuthXOAUTH2
+	case "CUSTOM":
+		return gomail.SMTPAuthCustom
+	case "SCRAM-SHA-1":
+		return gomail.SMTPAuthSCRAMSHA1
+	case "SCRAM-SHA-1-PLUS":
+		return gomail.SMTPAuthSCRAMSHA1PLUS
+	case "SCRAM-SHA-256":
+		return gomail.SMTPAuthSCRAMSHA256
+	case "SCRAM-SHA-256-PLUS":
+		return gomail.SMTPAuthSCRAMSHA256PLUS
+	default:
+		return gomail.SMTPAuthLogin
+	}
+}
+
+func tlsPolicyFromInt(typ int) gomail.TLSPolicy {
+	switch typ {
+	case 0:
+		return gomail.NoTLS
+	case 1:
+		return gomail.TLSOpportunistic
+	case 2:
+		return gomail.TLSMandatory
+	default:
+		return gomail.TLSOpportunistic
+	}
 }

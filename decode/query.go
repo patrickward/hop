@@ -2,6 +2,7 @@ package decode
 
 import (
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -56,4 +57,11 @@ func QueryBool(r *http.Request, key string) bool {
 	}
 
 	return parseBool
+}
+
+// QueryIsTrue checks if a query string parameter is set to a truthy value.
+func QueryIsTrue(r *http.Request, key string) bool {
+	allowedValues := []string{"true", "t", "1", "yes", "on"}
+	value := r.URL.Query().Get(key)
+	return slices.Contains(allowedValues, value)
 }

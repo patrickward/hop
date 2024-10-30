@@ -3,7 +3,7 @@ package check
 import "testing"
 
 func TestValidations(t *testing.T) {
-	v := New()
+	v := NewValidator()
 
 	username := "jo"
 	email := "invalid-email"

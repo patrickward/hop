@@ -11,7 +11,7 @@ import (
 
 // TestNew ensures a new validator is properly initialized
 func TestNew(t *testing.T) {
-	v := check.New()
+	v := check.NewValidator()
 
 	if v.HasErrors() {
 		t.Error("New validator should not have errors")
@@ -42,7 +42,7 @@ func TestCheck(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v := check.New()
+			v := check.NewValidator()
 			got := v.Check(tt.valid, tt.message)
 
 			if got != tt.want {
@@ -83,7 +83,7 @@ func TestCheckField(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v := check.New()
+			v := check.NewValidator()
 			got := v.CheckField(tt.valid, tt.field, tt.message)
 
 			if got != tt.want {
@@ -105,7 +105,7 @@ func TestCheckField(t *testing.T) {
 
 // TestMultipleErrors tests handling multiple errors
 func TestMultipleErrors(t *testing.T) {
-	v := check.New()
+	v := check.NewValidator()
 
 	// Add multiple field errors
 	v.CheckField(false, "username", "username required")
@@ -134,7 +134,7 @@ func TestMultipleErrors(t *testing.T) {
 
 // TestJSON tests JSON marshaling of validator
 func TestJSON(t *testing.T) {
-	v := check.New()
+	v := check.NewValidator()
 
 	v.CheckField(false, "username", "invalid username")
 	v.Check(false, "general error")
@@ -168,7 +168,7 @@ func TestJSON(t *testing.T) {
 
 // TestClear tests clearing all errors
 func TestClear(t *testing.T) {
-	v := check.New()
+	v := check.NewValidator()
 
 	v.CheckField(false, "field1", "error1")
 	v.Check(false, "error2")
@@ -219,7 +219,7 @@ func TestError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v := check.New()
+			v := check.NewValidator()
 			tt.setup(v)
 
 			if got := v.Error(); got != tt.expected {
@@ -231,7 +231,7 @@ func TestError(t *testing.T) {
 
 // TestValidatorInTemplateContext tests the validator's template-friendly methods
 func TestValidatorInTemplateContext(t *testing.T) {
-	v := check.New()
+	v := check.NewValidator()
 
 	// Add some errors
 	v.CheckField(false, "username", "invalid username")

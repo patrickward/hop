@@ -66,12 +66,15 @@ func (p *DefaultHTMLProcessor) Process(html string) (string, error) {
 	return html, nil
 }
 
+// StringList is an alias for a slice of strings
+type StringList = []string
+
 // EmailMessage represents the content and recipients of an email
 type EmailMessage struct {
-	To           []string
-	Template     string
-	TemplateData any
-	Attachments  []Attachment
+	To           StringList   // List of recipient email addresses
+	Templates    StringList   // List of template names to proccess
+	TemplateData any          // Data to be passed to the templates
+	Attachments  []Attachment // List of attachments
 }
 
 // Attachment represents an email attachment
@@ -159,13 +162,21 @@ func (m *Mailer) setAddresses(email *gomail.Msg, to []string) error {
 	return nil
 }
 
+// NewTemplateData creates a new template data map with default values
+func (m *Mailer) NewTemplateData() TemplateData {
+	return NewTemplateData(m.config)
+}
+
 func (m *Mailer) processTemplates(email *gomail.Msg, msg *EmailMessage) error {
-	templatePath := msg.Template
+	templatePath := msg.Templates
 	if m.config.TemplatePath != "" {
-		templatePath = strings.TrimSuffix(m.config.TemplatePath, "/") + "/" + msg.Template
+		// For each template, we need to prepend the template path
+		for i, tmpl := range msg.Templates {
+			msg.Templates[i] = strings.TrimSuffix(m.config.TemplatePath, "/") + "/" + tmpl
+		}
 	}
 
-	tmpl, err := template.New("").ParseFS(m.config.TemplateFS, templatePath)
+	tmpl, err := template.New("").ParseFS(m.config.TemplateFS, templatePath...)
 	if err != nil {
 		return fmt.Errorf("failed to parse template: %w", err)
 	}

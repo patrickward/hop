@@ -54,6 +54,11 @@ func NewConnection(cfg Config) (*Connection, error) {
 	return conn, nil
 }
 
+// Config returns a copy of the connection configuration.
+func (c *Connection) Config() Config {
+	return *c.config
+}
+
 // Close closes the database connections.
 func (c *Connection) Close() error {
 	writeErr := c.writeDB.Close()

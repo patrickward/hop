@@ -16,8 +16,8 @@ type Validator struct {
 	errors      []ValidationError
 }
 
-// New creates a new validator instance
-func New() *Validator {
+// NewValidator creates a new validator instance
+func NewValidator() *Validator {
 	return &Validator{
 		fieldErrors: make(map[string][]ValidationError),
 		errors:      make([]ValidationError, 0),
@@ -125,6 +125,18 @@ func (v *Validator) Fields() map[string]string {
 func (v *Validator) DetailedErrors() map[string][]ValidationError {
 	v.ensureInitialized()
 	return v.fieldErrors
+}
+
+// Merge combines another validator's errors into this one
+func (v *Validator) Merge(other *Validator) {
+	v.ensureInitialized()
+	other.ensureInitialized()
+
+	for field, errs := range other.fieldErrors {
+		v.fieldErrors[field] = append(v.fieldErrors[field], errs...)
+	}
+
+	v.errors = append(v.errors, other.errors...)
 }
 
 // MarshalJSON implements json.Marshaler

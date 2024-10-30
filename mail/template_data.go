@@ -2,13 +2,12 @@ package mail
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 )
 
 type TemplateData map[string]any
 
-func NewTemplateData(r *http.Request, cfg *Config) TemplateData {
+func NewTemplateData(cfg *Config) TemplateData {
 	now := time.Now()
 
 	data := TemplateData{

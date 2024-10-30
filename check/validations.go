@@ -38,6 +38,11 @@ func Required(value any) bool {
 	}
 }
 
+// NotZero checks if a numeric value is not a zero value
+func NotZero[T comparable](value T) bool {
+	return value != *new(T)
+}
+
 // MinLength returns a validation function that checks minimum string length
 //
 // Example usage:
@@ -78,8 +83,16 @@ func Email(value any) bool {
 	if !ok {
 		return false
 	}
-	//pattern := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
 	return regexp.MustCompile(rgxEmail).MatchString(str)
+}
+
+// Phone validates phone number format
+func Phone(value any) bool {
+	str, ok := value.(string)
+	if !ok {
+		return false
+	}
+	return regexp.MustCompile(rgxPhone).MatchString(str)
 }
 
 // Min returns a validation function that checks minimum value

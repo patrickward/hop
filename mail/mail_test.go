@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	gomail "github.com/wneessen/go-mail"
+
 	"github.com/patrickward/hop/internal/testutil"
 	"github.com/patrickward/hop/mail"
 )
@@ -41,6 +43,7 @@ func TestMailer(t *testing.T) {
 		Host:          "localhost",
 		Port:          1025,
 		From:          "test@example.com",
+		AuthType:      string(gomail.SMTPAuthNoAuth),
 		TemplateFS:    testFS,
 		RetryCount:    1,
 		RetryDelay:    time.Millisecond,
@@ -61,8 +64,8 @@ func TestMailer(t *testing.T) {
 		{
 			name: "basic email with both bodies",
 			msg: &mail.EmailMessage{
-				To:       []string{"recipient@example.com"},
-				Template: "testdata/basic.tmpl",
+				To:        mail.StringList{"recipient@example.com"},
+				Templates: mail.StringList{"testdata/basic.tmpl"},
 				TemplateData: map[string]string{
 					"Name": "John",
 				},
@@ -93,7 +96,7 @@ func TestMailer(t *testing.T) {
 
 			err := mailer.Send(tt.msg)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Send() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Send() error = %v, wantErr %v; make sure mailpit is running!", err, tt.wantErr)
 			}
 
 			if !tt.wantErr {
@@ -131,8 +134,8 @@ func TestMailer_Errors(t *testing.T) {
 				TemplateFS: testFS,
 			},
 			msg: &mail.EmailMessage{
-				To:       []string{"test@example.com"},
-				Template: "testdata/welcome.tmpl",
+				To:        mail.StringList{"test@example.com"},
+				Templates: mail.StringList{"testdata/welcome.tmpl"},
 				TemplateData: map[string]interface{}{
 					"Name":    "Test User",
 					"Company": "Test Co",
@@ -149,8 +152,8 @@ func TestMailer_Errors(t *testing.T) {
 				TemplateFS: testFS,
 			},
 			msg: &mail.EmailMessage{
-				To:       []string{"test@example.com"},
-				Template: "testdata/nonexistent.tmpl",
+				To:        mail.StringList{"test@example.com"},
+				Templates: mail.StringList{"testdata/nonexistent.tmpl"},
 				TemplateData: map[string]interface{}{
 					"Name":    "Test User",
 					"Company": "Test Co",

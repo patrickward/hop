@@ -32,8 +32,8 @@ func NewWelcomeEmailSender(mailer *mail.Mailer, guidesPath string) *WelcomeEmail
 // Send sends a welcome email to a new user
 func (s *WelcomeEmailSender) Send(to string, data WelcomeEmailData) error {
 	msg := &mail.EmailMessage{
-		To:       []string{to},
-		Template: "templates/welcome.tmpl",
+		To:        mail.StringList{to},
+		Templates: mail.StringList{"templates/welcome.tmpl"},
 		TemplateData: map[string]interface{}{
 			"Name":    data.Name,
 			"Company": data.Company,

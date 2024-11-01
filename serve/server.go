@@ -180,6 +180,7 @@ func (s *Server) NewTemplateData(r *http.Request) map[string]any {
 		//"ProdJSFile":         prodJSFile,
 		"MaintenanceEnabled": s.config.Maintenance.Enabled,
 		"MaintenanceMessage": s.config.Maintenance.Message,
+		"Company":            s.config.Company,
 	}
 
 	if s.dataFunc != nil {

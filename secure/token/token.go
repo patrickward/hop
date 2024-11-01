@@ -67,6 +67,9 @@ func defaultConfig() *config {
 func Generate(opts ...Option) (string, error) {
 	cfg := defaultConfig()
 	for _, opt := range opts {
+		if opt == nil {
+			continue
+		}
 		opt(cfg)
 	}
 

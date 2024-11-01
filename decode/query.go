@@ -17,6 +17,20 @@ func QueryString(r *http.Request, key string) string {
 	return strings.TrimSpace(r.URL.Query().Get(key))
 }
 
+// QueryInt returns the value of a query string parameter as an int in an HTTP request.
+func QueryInt(r *http.Request, key string) int {
+	value := r.URL.Query().Get(key)
+	if value == "" {
+		return 0
+	}
+	parseInt, err := strconv.Atoi(value)
+	if err != nil {
+		return 0
+	}
+
+	return parseInt
+}
+
 // QueryInt64 returns the value of a query string parameter as an int64 in an HTTP request.
 func QueryInt64(r *http.Request, key string) int64 {
 	value := r.URL.Query().Get(key)

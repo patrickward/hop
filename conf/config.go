@@ -42,15 +42,15 @@ type ServerConfig struct {
 	Host            string   `json:"host" env:"SERVER_HOST" default:"localhost"`
 	Port            int      `json:"port" env:"SERVER_PORT" default:"4444"`
 	IdleTimeout     Duration `json:"idle_timeout" env:"SERVER_IDLE_TIMEOUT" default:"120s"`
-	ReadTimeout     Duration `json:"read_timeout" env:"SERVER_READ_TIMEOUT" default:"10s"`
-	WriteTimeout    Duration `json:"write_timeout" env:"SERVER_WRITE_TIMEOUT" default:"10s"`
+	ReadTimeout     Duration `json:"read_timeout" env:"SERVER_READ_TIMEOUT" default:"15s"`
+	WriteTimeout    Duration `json:"write_timeout" env:"SERVER_WRITE_TIMEOUT" default:"15s"`
 	ShutdownTimeout Duration `json:"shutdown_timeout" env:"SERVER_SHUTDOWN_TIMEOUT" default:"10s"`
 }
 
 type DatabaseConfig struct {
 	Driver          string   `json:"driver" env:"DB_DRIVER" default:"sqlite"`
 	URI             string   `json:"uri" env:"DB_URI" default:"data/db.sqlite"`
-	Timeout         Duration `json:"timeout" env:"DB_TIMEOUT" default:"5s"`
+	Timeout         Duration `json:"timeout" env:"DB_TIMEOUT" default:"10s"`
 	MaxIdleConns    int      `json:"max_idle_conns" env:"DB_MAX_IDLE_CONNS" default:"10"`
 	MaxIdleTime     Duration `json:"max_idle_time" env:"DB_MAX_IDLE_TIME" default:"5m"`
 	MaxConnLifetime Duration `json:"max_conn_lifetime" env:"DB_MAX_CONN_LIFETIME" default:"30m"`

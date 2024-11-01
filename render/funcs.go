@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"math"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -37,14 +38,16 @@ func MergeFuncMaps(funcMap template.FuncMap) template.FuncMap {
 func DefaultFuncMap() template.FuncMap {
 	return template.FuncMap{
 		// Maps/Collections
-		"kv":    kv,           // Create a ke-value pair
-		"dict":  dict,         // Create a map from key-value pairs
-		"slice": slice,        // Create a slice from a list of items
-		"group": group,        // Split a slice into chunks of specified size
-		"first": first,        // Get the first element of a slice
-		"last":  last,         // Get the last element of a slice
-		"nth":   nth,          // Get the nth element of a slice
-		"join":  strings.Join, // Join a slice into a string
+		"kv":       kv,            // Create a ke-value pair
+		"dict":     dict,          // Create a map from key-value pairs
+		"slice":    slice,         // Create a slice from a list of items
+		"group":    group,         // Split a slice into chunks of specified size
+		"first":    first,         // Get the first element of a slice
+		"last":     last,          // Get the last element of a slice
+		"nth":      nth,           // Get the nth element of a slice
+		"join":     strings.Join,  // Join a slice into a string
+		"has":      sliceHas,      // Check if a string exists in a slice
+		"hasInt64": sliceHasInt64, // Check if an int64 exists in a slice
 
 		// TODO: Implement the following functions
 		//"shuffle":   shuffle,      // Shuffle a slice
@@ -84,6 +87,8 @@ func DefaultFuncMap() template.FuncMap {
 		"fmtFloat": formatFloat,
 
 		// Math/Logic
+		"add":  func(a, b int) int { return a + b },
+		"sub":  func(a, b int) int { return a - b },
 		"incr": incr, // Increment a number by 1
 		"decr": decr, // Decrement a number by 1
 
@@ -92,8 +97,10 @@ func DefaultFuncMap() template.FuncMap {
 
 		// HTML functions
 		"safe":        safeHTML,
+		"safeAttr":    template.HTMLEscapeString,
 		"urlSetParam": urlSetParam,
 		"urlDelParam": urlDelParam,
+		"urlToAttr":   urlToAttr,
 	}
 }
 
@@ -107,6 +114,11 @@ func kv(k string, v any, other map[string]any) map[string]any {
 }
 
 // dict creates a map from a list of key-value pairs.
+// The number of arguments must be even, otherwise an error is returned.
+//
+// Example:
+//
+//	{{ $m := dict "name" "John" "age" 30 }}
 func dict(pairs ...any) (map[string]any, error) {
 	if len(pairs)%2 != 0 {
 		return nil, fmt.Errorf("invalid number of arguments, there must be an even number of arguments")
@@ -162,6 +174,14 @@ func nth(seq []any, n int) any {
 		return nil
 	}
 	return seq[n]
+}
+
+func sliceHas(slice []string, s string) bool {
+	return slices.Contains(slice, s)
+}
+
+func sliceHasInt64(slice []int64, i int64) bool {
+	return slices.Contains(slice, i)
 }
 
 // toString converts any type to a string
@@ -294,8 +314,7 @@ func formatTime(format string, t time.Time) string {
 	return t.Format(format)
 }
 
-// urlSetParam sets a query parameter in a URL
-func urlSetParam(u *url.URL, key string, value any) *url.URL {
+func urlSetParam(key string, value any, u *url.URL) *url.URL {
 	nu := *u
 	values := nu.Query()
 
@@ -305,8 +324,7 @@ func urlSetParam(u *url.URL, key string, value any) *url.URL {
 	return &nu
 }
 
-// urlDelParam deletes a query parameter from a URL
-func urlDelParam(u *url.URL, key string) *url.URL {
+func urlDelParam(key string, u *url.URL) *url.URL {
 	nu := *u
 	values := nu.Query()
 
@@ -315,6 +333,44 @@ func urlDelParam(u *url.URL, key string) *url.URL {
 	nu.RawQuery = values.Encode()
 	return &nu
 }
+
+func urlToAttr(u *url.URL) template.HTMLAttr {
+	return template.HTMLAttr(u.String())
+}
+
+//// urlSetParam replaces a query parameter in a URL
+//func urlSetParam(urlValue string, key string, value interface{}) string {
+//	u, err := url.Parse(urlValue)
+//	if err != nil {
+//		return urlValue
+//	}
+//
+//	q := u.Query()
+//	q.Set(key, fmt.Sprintf("%v", value))
+//
+//	// Set the new query string back in the URL
+//	u.RawQuery = q.Encode()
+//
+//	// Return the updated URL
+//	return u.String()
+//}
+//
+//// urlDelParam deletes a query parameter from a URL
+//func urlDelParam(urlValue, key string) string {
+//	u, err := url.Parse(urlValue)
+//	if err != nil {
+//		return urlValue
+//	}
+//
+//	q := u.Query()
+//	q.Del(key)
+//
+//	// Set the new query string back in the URL
+//	u.RawQuery = q.Encode()
+//
+//	// Return the updated URL
+//	return u.String()
+//}
 
 // approximateDuration returns a human-readable approximation of a duration
 func approximateDuration(d time.Duration) string {

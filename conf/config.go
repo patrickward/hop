@@ -14,8 +14,9 @@ import (
 
 // BaseConfig provides core configuration options
 type BaseConfig struct {
-	Environment string            `json:"environment" env:"APP_ENV" default:"development"`
-	Debug       bool              `json:"debug" env:"APP_DEBUG" default:"false"`
+	//Environment string            `json:"environment" env:"APP_ENVIRONMENT" default:"development"`
+	//Debug       bool              `json:"debug" env:"APP_DEBUG" default:"false"`
+	App         AppConfig         `json:"app"`
 	Company     CompanyConfig     `json:"company"`
 	Maintenance MaintenanceConfig `json:"maintenance"`
 	Server      ServerConfig      `json:"server"`
@@ -25,11 +26,17 @@ type BaseConfig struct {
 }
 
 func (c *BaseConfig) IsDevelopment() bool {
-	return c.Environment == "development"
+	return c.App.Environment == "development"
 }
 
 func (c *BaseConfig) IsProduction() bool {
-	return c.Environment == "production"
+	return c.App.Environment == "production"
+}
+
+type AppConfig struct {
+	Environment string `json:"environment" env:"APP_ENVIRONMENT" default:"development"`
+	Debug       bool   `json:"debug" env:"APP_DEBUG" default:"false"`
+	SAASMode    bool   `json:"saas_mode" env:"SAAS_MODE" default:"false"`
 }
 
 type MaintenanceConfig struct {

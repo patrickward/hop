@@ -168,9 +168,9 @@ func (s *Server) NewTemplateData(r *http.Request) map[string]any {
 
 	data := map[string]any{
 		//"CurrentUser":        auth.GetCurrentUserFromContext(r),
-		"Env":           s.config.Environment,
-		"IsDevelopment": s.config.Environment == "development",
-		"IsProduction":  s.config.Environment == "production",
+		"Env":           s.config.App.Environment,
+		"IsDevelopment": s.config.App.Environment == "development",
+		"IsProduction":  s.config.App.Environment == "production",
 		"CSRFToken":     nosurf.Token(r),
 		"BaseURL":       s.config.Server.BaseURL,
 		"CacheBuster":   s.CacheBuster,

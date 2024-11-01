@@ -32,9 +32,9 @@ func BasicFlags(fs *flag.FlagSet) {
 // ApplyFlagOverrides ensures that if a basic flag is set, it overrides the config
 func ApplyFlagOverrides(cfg *BaseConfig, fs *flag.FlagSet) {
 	if fs.Lookup("debug").Value.String() == "true" {
-		cfg.Debug = true
+		cfg.App.Debug = true
 	}
 	if fs.Lookup("env").Value.String() != "" {
-		cfg.Environment = fs.Lookup("env").Value.String()
+		cfg.App.Environment = fs.Lookup("env").Value.String()
 	}
 }

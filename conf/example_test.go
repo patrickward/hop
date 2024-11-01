@@ -63,7 +63,7 @@ func Example() {
 	}
 
 	// Print the resulting configuration
-	fmt.Printf("Environment: %s\n", cfg.Environment)
+	fmt.Printf("Environment: %s\n", cfg.App.Environment)
 	fmt.Printf("Redis Host: %s\n", cfg.Redis.Host)
 	fmt.Printf("Redis Port: %d\n", cfg.Redis.Port)
 	fmt.Printf("Redis Timeout: %s\n", cfg.Redis.Timeout)
@@ -184,8 +184,8 @@ func ExampleBasicFlags() {
 	}
 
 	// Print the resulting configuration
-	fmt.Printf("Environment: %s\n", cfg.Environment)
-	fmt.Printf("Debug: %v\n", cfg.Debug)
+	fmt.Printf("Environment: %s\n", cfg.App.Environment)
+	fmt.Printf("Debug: %v\n", cfg.App.Debug)
 	fmt.Printf("API Endpoint: %s\n", cfg.API.Endpoint)
 	fmt.Printf("API Timeout: %s\n", cfg.API.Timeout)
 

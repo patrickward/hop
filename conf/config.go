@@ -77,12 +77,12 @@ type SMPTConfig struct {
 }
 
 type CompanyConfig struct {
-	CompanyAddress string `json:"company_address" env:"COMPANY_ADDRESS" default:""`
-	CompanyName    string `json:"company_name" env:"COMPANY_NAME" default:""`
-	LogoURL        string `json:"logo_url" env:"LOGO_URL" default:""`
-	SupportEmail   string `json:"support_email" env:"SUPPORT_EMAIL" default:""`
-	WebsiteName    string `json:"website_name" env:"WEBSITE_NAME" default:""`
-	WebsiteURL     string `json:"website_url" env:"WEBSITE_URL" default:""`
+	Address      string `json:"address" env:"COMPANY_ADDRESS" default:""`
+	Name         string `json:"name" env:"COMPANY_NAME" default:""`
+	LogoURL      string `json:"logo_url" env:"COMPANY_LOGO_URL" default:""`
+	SupportEmail string `json:"support_email" env:"COMPANY_SUPPORT_EMAIL" default:""`
+	WebsiteName  string `json:"website_name" env:"COMPANY_WEBSITE_NAME" default:""`
+	WebsiteURL   string `json:"website_url" env:"COMPANY_WEBSITE_URL" default:""`
 	//SiteLinks        map[string]string `json:"site_links" env:"SITE_LINKS" default:"{}"`
 	//SocialMediaLinks map[string]string `json:"social_media_links" env:"SOCIAL_MEDIA_LINKS" default:"{}"`
 }

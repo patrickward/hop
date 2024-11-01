@@ -42,12 +42,13 @@ type Config struct {
 	HTMLProcessor HTMLProcessor // HTML processor for processing HTML content
 
 	// Company/Branding
+	BaseURL        string // Base URL of the website
 	CompanyAddress string // Company address
 	CompanyName    string // Company name
 	LogoURL        string // URL to the company logo
 	SupportEmail   string // Support email address
 	WebsiteName    string // Name of the website
-	WebsiteURL     string // URL to the company website. This should be the base URL of the website.
+	WebsiteURL     string // URL to the company website.
 
 	// Links
 	SiteLinks        map[string]string // Site links

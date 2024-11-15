@@ -23,6 +23,6 @@ func Username(value any) bool {
 
 	return Required(str) &&
 		MinLength(3)(str) &&
-		MaxLength(30)(str) &&
+		MaxLength(255)(str) &&
 		Match(`^[a-zA-Z0-9_-]+$`)(str)
 }

@@ -156,6 +156,18 @@ func (s *Server) CacheBuster() string {
 	return time.Now().Format("20060102150405")
 }
 
+// NewResponse creates a new Response instance with the TemplateManager.
+func (s *Server) NewResponse(r *http.Request) (*render.Response, error) {
+	if s.tm == nil {
+		return nil, errors.New("template manager is not set")
+	}
+
+	resp := render.NewResponse(s.tm)
+	data := s.NewTemplateData(r)
+	resp.Data(data)
+	return resp, nil
+}
+
 // NewTemplateData returns a map of data that can be used in a Go template. It includes the current user, environment, version, and other useful information.
 func (s *Server) NewTemplateData(r *http.Request) map[string]any {
 	// Check if this is the home page.

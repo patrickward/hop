@@ -12,6 +12,8 @@ import (
 	"time"
 
 	gomail "github.com/wneessen/go-mail"
+
+	"github.com/patrickward/hop/render"
 )
 
 var (
@@ -31,8 +33,9 @@ type Config struct {
 	TLSPolicy int    // TLS policy for the SMTP connection (see the go-mail package for options). Default is opportunistic.
 
 	// Template configuration
-	TemplateFS   fs.FS  // File system for templates
-	TemplatePath string // Path to the templates directory in the file system
+	TemplateFS      fs.FS            // File system for templates
+	TemplatePath    string           // Path to the templates directory in the file system
+	TemplateFuncMap template.FuncMap // Template function map that gets merged with the default function map from render
 
 	// Retry configuration
 	RetryCount int           // Number of retry attempts for sending email
@@ -89,6 +92,7 @@ type Attachment struct {
 type Mailer struct {
 	config        *Config
 	client        *gomail.Client
+	funcMap       template.FuncMap
 	htmlProcessor HTMLProcessor
 }
 
@@ -103,6 +107,8 @@ func NewMailer(cfg *Config) (*Mailer, error) {
 	if cfg.HTMLProcessor == nil {
 		cfg.HTMLProcessor = &DefaultHTMLProcessor{}
 	}
+
+	funcMap := render.MergeFuncMaps(cfg.TemplateFuncMap)
 
 	authType := authTypeFromString(cfg.AuthType)
 	tlsPolicy := tlsPolicyFromInt(cfg.TLSPolicy)
@@ -123,6 +129,7 @@ func NewMailer(cfg *Config) (*Mailer, error) {
 	return &Mailer{
 		config:        cfg,
 		client:        client,
+		funcMap:       funcMap,
 		htmlProcessor: cfg.HTMLProcessor,
 	}, nil
 }
@@ -177,7 +184,7 @@ func (m *Mailer) processTemplates(email *gomail.Msg, msg *EmailMessage) error {
 		}
 	}
 
-	tmpl, err := template.New("").ParseFS(m.config.TemplateFS, templatePath...)
+	tmpl, err := template.New("").Funcs(m.funcMap).ParseFS(m.config.TemplateFS, templatePath...)
 	if err != nil {
 		return fmt.Errorf("failed to parse template: %w", err)
 	}

@@ -18,6 +18,7 @@ import (
 
 	"github.com/patrickward/hop/conf"
 	"github.com/patrickward/hop/render"
+	"github.com/patrickward/hop/render/htmx"
 	"github.com/patrickward/hop/wrap"
 )
 
@@ -180,16 +181,17 @@ func (s *Server) NewTemplateData(r *http.Request) map[string]any {
 
 	data := map[string]any{
 		//"CurrentUser":        auth.GetCurrentUserFromContext(r),
-		"Env":           s.config.App.Environment,
-		"IsDevelopment": s.config.App.Environment == "development",
-		"IsProduction":  s.config.App.Environment == "production",
-		"CSRFToken":     nosurf.Token(r),
-		"BaseURL":       s.config.Server.BaseURL,
-		"CacheBuster":   s.CacheBuster,
-		"RequestPath":   r.URL.Path,
-		"IsHome":        isHome,
-		//"ProdCSSFile":        prodCSSFile,
-		//"ProdJSFile":         prodJSFile,
+		"Env":                s.config.App.Environment,
+		"IsDevelopment":      s.config.App.Environment == "development",
+		"IsProduction":       s.config.App.Environment == "production",
+		"CSRFToken":          nosurf.Token(r),
+		"BaseURL":            s.config.Server.BaseURL,
+		"CacheBuster":        s.CacheBuster,
+		"RequestPath":        r.URL.Path,
+		"IsHome":             isHome,
+		"IsHTMXRequest":      htmx.IsHtmxRequest(r),
+		"IsBoostedRequest":   htmx.IsBoostedRequest(r),
+		"IsAnyHtmxRequest":   htmx.IsAnyHtmxRequest(r),
 		"MaintenanceEnabled": s.config.Maintenance.Enabled,
 		"MaintenanceMessage": s.config.Maintenance.Message,
 		"Company":            s.config.Company,

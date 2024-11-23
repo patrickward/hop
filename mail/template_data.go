@@ -13,8 +13,9 @@ func NewTemplateData(cfg *Config) TemplateData {
 	data := TemplateData{
 		"BaseURL":          cfg.BaseURL,
 		"Copyright":        fmt.Sprintf("© %d %s. All rights reserved", now.Year(), cfg.CompanyName),
-		"CompanyAddress":   cfg.CompanyAddress,
 		"CompanyName":      cfg.CompanyName,
+		"CompanyAddress":   cfg.CompanyAddress,
+		"CompanyAddress2":  cfg.CompanyAddress2,
 		"LogoURL":          cfg.LogoURL,
 		"SupportEmail":     cfg.SupportEmail,
 		"WebsiteName":      cfg.WebsiteName,

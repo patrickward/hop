@@ -46,8 +46,8 @@ type Config struct {
 
 	// Company/Branding
 	BaseURL         string // Base URL of the website
-	CompanyAddress  string // Company address
-	CompanyAddress2 string // Additional company address information (sometimes, you might want to split the address into multiple lines)
+	CompanyAddress1 string // The first line of the company address (usually the street address)
+	CompanyAddress2 string // The second line of the company address (usually the city, state, and ZIP code)
 	CompanyName     string // Company name
 	LogoURL         string // URL to the company logo
 	SupportEmail    string // Support email address

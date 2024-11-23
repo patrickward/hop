@@ -78,13 +78,36 @@ type SMPTConfig struct {
 
 type CompanyConfig struct {
 	Address      string `json:"address" env:"COMPANY_ADDRESS" default:""`
+	Address2     string `json:"address2" env:"COMPANY_ADDRESS2" default:""`
+	City         string `json:"city" env:"COMPANY_CITY" default:""`
+	State        string `json:"state" env:"COMPANY_STATE" default:""`
+	Zip          string `json:"zip" env:"COMPANY_ZIP" default:""`
 	Name         string `json:"name" env:"COMPANY_NAME" default:""`
 	LogoURL      string `json:"logo_url" env:"COMPANY_LOGO_URL" default:""`
 	SupportEmail string `json:"support_email" env:"COMPANY_SUPPORT_EMAIL" default:""`
+	SupportPhone string `json:"support_phone" env:"COMPANY_SUPPORT_PHONE" default:""`
 	WebsiteName  string `json:"website_name" env:"COMPANY_WEBSITE_NAME" default:""`
 	WebsiteURL   string `json:"website_url" env:"COMPANY_WEBSITE_URL" default:""`
 	//SiteLinks        map[string]string `json:"site_links" env:"SITE_LINKS" default:"{}"`
 	//SocialMediaLinks map[string]string `json:"social_media_links" env:"SOCIAL_MEDIA_LINKS" default:"{}"`
+}
+
+// SingleLineAddress returns a single line address string
+func (c CompanyConfig) SingleLineAddress() string {
+	if c.Address2 != "" {
+		return fmt.Sprintf("%s, %s, %s %s", c.Address, c.Address2, c.City, c.State, c.Zip)
+	}
+	return fmt.Sprintf("%s, %s, %s %s", c.Address, c.City, c.State, c.Zip)
+}
+
+// TwoLineAddress returns two lines of address strings (the first line contains the address and the second line contains the city, state, and ZIP code)
+func (c CompanyConfig) TwoLineAddress() (string, string) {
+	line1 := c.Address
+	if c.Address2 != "" {
+		line1 = fmt.Sprintf("%s, %s", c.Address, c.Address2)
+	}
+	line2 := fmt.Sprintf("%s, %s %s", c.City, c.State, c.Zip)
+	return line1, line2
 }
 
 type LogConfig struct {

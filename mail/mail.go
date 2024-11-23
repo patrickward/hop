@@ -51,6 +51,7 @@ type Config struct {
 	CompanyName     string // Company name
 	LogoURL         string // URL to the company logo
 	SupportEmail    string // Support email address
+	SupportPhone    string // Support phone number
 	WebsiteName     string // Name of the website
 	WebsiteURL      string // URL to the company website.
 

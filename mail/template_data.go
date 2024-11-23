@@ -18,6 +18,7 @@ func NewTemplateData(cfg *Config) TemplateData {
 		"CompanyAddress2":  cfg.CompanyAddress2,
 		"LogoURL":          cfg.LogoURL,
 		"SupportEmail":     cfg.SupportEmail,
+		"SupportPhone":     cfg.SupportPhone,
 		"WebsiteName":      cfg.WebsiteName,
 		"WebsiteURL":       cfg.WebsiteURL,
 		"DateYear":         now.Year(),

@@ -67,14 +67,14 @@ func (resp *Response) Headers() map[string]string {
 			}
 		}
 
-		if resp.triggers.HasAfterSettleTriggers() {
+		if resp.triggers.HasAfterSwapTriggers() {
 			val, err := resp.triggers.TriggerAfterSwapHeader()
 			if err == nil {
 				resp.headers[htmx.HXTriggerAfterSwap] = val
 			}
 		}
 
-		if resp.triggers.HasAfterSwapTriggers() {
+		if resp.triggers.HasAfterSettleTriggers() {
 			val, err := resp.triggers.TriggerAfterSettleHeader()
 			if err == nil {
 				resp.headers[htmx.HXTriggerAfterSettle] = val

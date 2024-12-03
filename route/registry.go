@@ -2,6 +2,7 @@ package route
 
 import (
 	"net/http"
+	"path"
 	"sort"
 	"sync"
 )
@@ -28,18 +29,42 @@ func newRouteRegistry() *routeRegistry {
 	}
 }
 
+// cleanPattern normalizes a pattern for consistency
+func cleanPattern(pattern string) string {
+	if pattern == "" {
+		return "/"
+	}
+
+	// Use path.Clean to normalize the path
+	clean := path.Clean(pattern)
+
+	// Ensure it starts with a slash
+	if clean[0] != '/' {
+		clean = "/" + clean
+	}
+
+	// Add trailing slash for consistency with ServeMux
+	if len(clean) > 1 && clean[len(clean)-1] != '/' {
+		clean += "/"
+	}
+
+	return clean
+}
+
 // register adds or updates a route's allowed methods
 func (rr *routeRegistry) register(pattern, method string) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 
-	info, exists := rr.routes[pattern]
+	cleanPath := cleanPattern(pattern)
+
+	info, exists := rr.routes[cleanPath]
 	if !exists {
 		info = &Route{
 			Pattern: pattern,
 			Methods: make(map[string]struct{}, 4),
 		}
-		rr.routes[pattern] = info
+		rr.routes[cleanPath] = info
 	}
 
 	// Register the explicit method
@@ -51,7 +76,7 @@ func (rr *routeRegistry) register(pattern, method string) {
 	}
 
 	// Invalidate the cache for this pattern
-	delete(rr.methodCache, pattern)
+	delete(rr.methodCache, cleanPath)
 }
 
 // getAllowedMethods returns all allowed methods for a pattern
@@ -59,12 +84,14 @@ func (rr *routeRegistry) getAllowedMethods(pattern string) []string {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 
+	cleanPath := cleanPattern(pattern)
+
 	// Check the cache first
-	if methods, ok := rr.methodCache[pattern]; ok {
+	if methods, ok := rr.methodCache[cleanPath]; ok {
 		return methods
 	}
 
-	info, exists := rr.routes[pattern]
+	info, exists := rr.routes[cleanPath]
 	if !exists {
 		return nil
 	}
@@ -79,7 +106,7 @@ func (rr *routeRegistry) getAllowedMethods(pattern string) []string {
 	sort.Strings(methods)
 
 	// Update the cache
-	rr.methodCache[pattern] = methods
+	rr.methodCache[cleanPath] = methods
 
 	return methods
 }

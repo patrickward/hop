@@ -183,12 +183,3 @@ func (m *Mux) DumpRoutes() (string, error) {
 	}
 	return string(b), nil
 }
-
-// Helper functions
-
-// wrapHandlerFunc converts a middleware that takes a http.Handler to one that takes a http.HandlerFunc
-func wrapHandlerFunc(middleware func(http.Handler) http.Handler, handler http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		middleware(handler).ServeHTTP(w, r)
-	}
-}

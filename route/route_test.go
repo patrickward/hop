@@ -222,7 +222,7 @@ func TestListRoutes(t *testing.T) {
 	routeMap := make(map[string][]string)
 	for _, r := range routes {
 		methods := make([]string, 0)
-		for method := range r.Methods {
+		for _, method := range r.Methods {
 			methods = append(methods, method)
 		}
 		routeMap[r.Pattern] = methods
@@ -263,27 +263,17 @@ func TestDumpRoutes(t *testing.T) {
 	// Expected JSON output
 	expectedJSON := `[
 	  {	
-		"Pattern": "/api/health",
-		"Methods": {
-		  "GET": true,
-		  "HEAD": true
-		}
+		"pattern": "/api/health",
+		"methods": ["GET", "HEAD"] 
 	  },
 	  {
-		"Pattern": "/api/v1/status",
-		"Methods": {
-		  "GET": true,
-		  "HEAD": true
-		}
+		"pattern": "/api/v1/status",
+		"methods": ["GET", "HEAD"]
 	  },
 	  {
-		"Pattern": "/api/v1/users",
-		"Methods": {	
-		  "GET": true,
-		  "HEAD": true,
-		  "POST": true
-		}
-	 }
+		"pattern": "/api/v1/users",
+		"methods": ["GET", "HEAD", "POST"]
+	  }
 	]`
 
 	assert.JSONEq(t, expectedJSON, routesJSON)

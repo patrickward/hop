@@ -3,6 +3,7 @@ package route
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strings"
 )
 
@@ -145,9 +146,32 @@ func (m *Mux) Head(pattern string, handler http.HandlerFunc) {
 	m.handle("HEAD "+pattern, handler)
 }
 
+type ListInfo struct {
+	Pattern string   `json:"pattern"`
+	Methods []string `json:"methods"`
+}
+
 // ListRoutes returns a list of all registered routes
-func (m *Mux) ListRoutes() []Route {
-	return m.registry.getRoutes()
+func (m *Mux) ListRoutes() []ListInfo {
+	routes := m.registry.getRoutes()
+	list := make([]ListInfo, 0, len(routes))
+	for _, r := range routes {
+		methods := make([]string, 0, len(r.Methods))
+
+		for method := range r.Methods {
+			methods = append(methods, method)
+		}
+
+		// Sort for consistent output
+		sort.Strings(methods)
+
+		list = append(list, ListInfo{
+			Pattern: r.Pattern,
+			Methods: methods,
+		})
+	}
+
+	return list
 }
 
 // DumpRoutes returns a JSON representation of all routes

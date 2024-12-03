@@ -6,21 +6,25 @@ import (
 	"sync"
 )
 
+var emptyStruct = struct{}{}
+
 // Route stores information about registered routes
 type Route struct {
 	Pattern string
-	Methods map[string]bool
+	Methods map[string]struct{}
 }
 
 // routeRegistry tracks all registered routes and their allowed methods
 type routeRegistry struct {
-	mu     sync.RWMutex
-	routes map[string]*Route // key is the pattern
+	mu          sync.RWMutex
+	routes      map[string]*Route   // Key is the pattern
+	methodCache map[string][]string // Cache common HTTP method too avoid allocations
 }
 
 func newRouteRegistry() *routeRegistry {
 	return &routeRegistry{
-		routes: make(map[string]*Route),
+		routes:      make(map[string]*Route),
+		methodCache: make(map[string][]string),
 	}
 }
 
@@ -33,30 +37,39 @@ func (rr *routeRegistry) register(pattern, method string) {
 	if !exists {
 		info = &Route{
 			Pattern: pattern,
-			Methods: make(map[string]bool),
+			Methods: make(map[string]struct{}, 4),
 		}
 		rr.routes[pattern] = info
 	}
 
 	// Register the explicit method
-	info.Methods[method] = true
+	info.Methods[method] = emptyStruct
 
 	// If registering GET, automatically support HEAD
 	if method == http.MethodGet {
-		info.Methods[http.MethodHead] = true
+		info.Methods[http.MethodHead] = emptyStruct
 	}
+
+	// Invalidate the cache for this pattern
+	delete(rr.methodCache, pattern)
 }
 
 // getAllowedMethods returns all allowed methods for a pattern
 func (rr *routeRegistry) getAllowedMethods(pattern string) []string {
-	rr.mu.RLock()
-	defer rr.mu.RUnlock()
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+
+	// Check the cache first
+	if methods, ok := rr.methodCache[pattern]; ok {
+		return methods
+	}
 
 	info, exists := rr.routes[pattern]
 	if !exists {
 		return nil
 	}
 
+	// Create new slice with capacity matching methods
 	methods := make([]string, 0, len(info.Methods))
 	for method := range info.Methods {
 		methods = append(methods, method)
@@ -64,6 +77,10 @@ func (rr *routeRegistry) getAllowedMethods(pattern string) []string {
 
 	// Sort for consistent output
 	sort.Strings(methods)
+
+	// Update the cache
+	rr.methodCache[pattern] = methods
+
 	return methods
 }
 
@@ -75,7 +92,7 @@ func (rr *routeRegistry) getRoutes() []Route {
 	routes := make([]Route, 0, len(rr.routes))
 	for _, info := range rr.routes {
 		// Create a copy of the route info
-		methods := make(map[string]bool)
+		methods := make(map[string]struct{})
 		for k, v := range info.Methods {
 			methods[k] = v
 		}

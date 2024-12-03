@@ -1,51 +1,12 @@
-// Package wrap provides middleware functions for HTTP handlers, including security headers, CSRF protection, and panic recovery.
-package wrap
+package middleware
 
 import (
 	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/justinas/nosurf"
+	"github.com/patrickward/hop/route"
 )
-
-// Middleware is a type that represents a middleware function.
-//type Middleware = func(next http.Handler) http.Handler
-
-// type Middleware func(http.Handler) http.Handler
-
-// Recovery recovers from a panic and renders a system error page.
-// The render function is passed as an argument to the middleware and used to render the error page.
-func Recovery(render func(http.ResponseWriter, *http.Request, error)) Middleware {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			defer func() {
-				err := recover()
-				if err != nil {
-					render(w, r, fmt.Errorf("%s", err))
-				}
-			}()
-
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-// SecurityHeaders sets security headers in the HTTP response.
-func SecurityHeaders(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		// Referrer-Policy restricts the amount of information sent in the Referer header.
-		w.Header().Set("Referrer-Policy", "origin-when-cross-origin")
-
-		// X-Content-Type-Options stops a browser from trying to MIME-sniff the content type.
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-
-		// X-Frame-Options provides clickjacking protection.
-		w.Header().Set("X-Frame-Options", "deny")
-		next.ServeHTTP(w, r)
-	})
-}
 
 // ContentSecurityPolicyOptions contains the options for the Content-Security-Policy header.
 type ContentSecurityPolicyOptions struct {
@@ -94,7 +55,15 @@ type ContentSecurityPolicyOptions struct {
 }
 
 // ContentSecurityPolicy sets the Content-Security-Policy header to protect against XSS attacks.
-func ContentSecurityPolicy(optsFunc func(opts *ContentSecurityPolicyOptions)) Middleware {
+// For more information, see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy
+//
+// Example:
+//
+//	r.Use(middleware.ContentSecurityPolicy(func(opts *middleware.ContentSecurityPolicyOptions) {
+//		opts.DefaultSrc = "'self'"
+//		opts.ImgSrc = "'self' https://example.com"
+//	}))
+func ContentSecurityPolicy(optsFunc func(opts *ContentSecurityPolicyOptions)) route.Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			options := ContentSecurityPolicyOptions{
@@ -143,20 +112,5 @@ func maybeAddDirective(directive, value string) string {
 		return ""
 	}
 
-	return fmt.Sprintf("%s %s;", directive, value)
-}
-
-// PreventCSRF prevents CSRF attacks by setting a CSRF cookie.
-func PreventCSRF(next http.Handler) http.Handler {
-	csrfHandler := nosurf.New(next)
-
-	csrfHandler.SetBaseCookie(http.Cookie{
-		HttpOnly: true,
-		Path:     "/",
-		MaxAge:   86400,
-		SameSite: http.SameSiteLaxMode,
-		Secure:   true,
-	})
-
-	return csrfHandler
+	return fmt.Sprintf("%s %s; ", directive, value)
 }

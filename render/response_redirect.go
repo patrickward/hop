@@ -27,9 +27,9 @@ func (resp *Response) RedirectWithHTMX(w http.ResponseWriter, url string) {
 }
 
 // Redirect sends a redirect response to the client
-func (s *Response) Redirect(w http.ResponseWriter, r *http.Request, url string) {
+func (resp *Response) Redirect(w http.ResponseWriter, r *http.Request, url string) {
 	if htmx.IsHtmxRequest(r) {
-		s.RedirectWithHTMX(w, url)
+		resp.RedirectWithHTMX(w, url)
 		return
 	} else if request.IsXMLHttpRequest(r) {
 		// Create a JSON response with a redirect

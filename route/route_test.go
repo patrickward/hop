@@ -1,6 +1,7 @@
 package route_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -202,6 +203,68 @@ func TestGroup(t *testing.T) {
 	}
 }
 
+// TestGroupWithParentMiddleware tests that middleware is applied in the correct order
+func TestGroupWithParentMiddleware(t *testing.T) {
+	mux := route.New()
+
+	// Add middleware to the root mux
+	mux.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Root", "1.0")
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	// Add a group with its own middleware
+	api := mux.Group("/api", func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-API", "1.0")
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	// Add a handler to the group
+	api.Get("/users", func(w http.ResponseWriter, r *http.Request) {
+		_, err := w.Write([]byte("users"))
+		require.NoError(t, err)
+	})
+
+	// Add a nested group with its own middleware
+	v1 := api.Group("/v1", func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-V1", "1.0")
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	// Add a handler to the nested group
+	v1.Get("/users", func(w http.ResponseWriter, r *http.Request) {
+		_, err := w.Write([]byte("users v1"))
+		require.NoError(t, err)
+	})
+
+	// Make a request to the handler
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/api/users", nil)
+	mux.ServeHTTP(w, r)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "users", w.Body.String())
+	assert.Equal(t, "1.0", w.Header().Get("X-Root"))
+	assert.Equal(t, "1.0", w.Header().Get("X-API"))
+
+	// Make a request to the nested handler
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest(http.MethodGet, "/api/v1/users", nil)
+	mux.ServeHTTP(w, r)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "users v1", w.Body.String())
+	assert.Equal(t, "1.0", w.Header().Get("X-Root"))
+	assert.Equal(t, "1.0", w.Header().Get("X-API"))
+	assert.Equal(t, "1.0", w.Header().Get("X-V1"))
+}
+
 // TestListRoutes tests the ListRoutes functionality
 func TestListRoutes(t *testing.T) {
 	mux := route.New()
@@ -260,23 +323,28 @@ func TestDumpRoutes(t *testing.T) {
 	routesJSON, err := mux.DumpRoutes()
 	require.NoError(t, err)
 
-	// Expected JSON output
-	expectedJSON := `[
-	  {	
-		"pattern": "/api/health",
-		"methods": ["GET", "HEAD"] 
-	  },
-	  {
-		"pattern": "/api/v1/status",
-		"methods": ["GET", "HEAD"]
-	  },
-	  {
-		"pattern": "/api/v1/users",
-		"methods": ["GET", "HEAD", "POST"]
-	  }
-	]`
+	expectedRoutes := []map[string]any{
+		{
+			"pattern": "/api/health",
+			"methods": []any{"GET", "HEAD"},
+		},
+		{
+			"pattern": "/api/v1/status",
+			"methods": []any{"GET", "HEAD"},
+		},
+		{
+			"pattern": "/api/v1/users",
+			"methods": []any{"GET", "HEAD", "POST"},
+		},
+	}
 
-	assert.JSONEq(t, expectedJSON, routesJSON)
+	// Unmarshal and compare JSON
+	var routes []map[string]any
+	err = json.Unmarshal([]byte(routesJSON), &routes)
+	require.NoError(t, err)
+
+	// compare the two slices, regardless of order
+	assert.ElementsMatch(t, expectedRoutes, routes)
 }
 
 // Helper function to parse Allow header

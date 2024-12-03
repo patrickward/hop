@@ -7,7 +7,8 @@ import (
 	"strings"
 )
 
-// Mux extends http.ServeMux with additional routing features
+// Mux extends http.ServeMux with additional routing features.
+// It also provides a middleware chain for adding middleware to routes.
 type Mux struct {
 	*http.ServeMux
 	middleware      Chain

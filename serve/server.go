@@ -11,11 +11,9 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/alexedwards/scs/v2"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/patrickward/hop/conf"
-	"github.com/patrickward/hop/render"
 	"github.com/patrickward/hop/route"
 )
 
@@ -30,14 +28,12 @@ type Server struct {
 	httpServer *http.Server
 	logger     *slog.Logger
 	//router      *http.ServeMux
-	router  *route.Mux
-	tm      *render.TemplateManager
-	session *scs.SessionManager
-	wg      *sync.WaitGroup
+	router *route.Mux
+	wg     *sync.WaitGroup
 }
 
 // NewServer creates a new server with the given configuration and logger.
-func NewServer(config *conf.Config, logger *slog.Logger, router *route.Mux, tm *render.TemplateManager, session *scs.SessionManager) *Server {
+func NewServer(config *conf.Config, logger *slog.Logger, router *route.Mux) *Server {
 	//router := http.NewServeMux()
 	if router == nil {
 		router = route.New()
@@ -57,8 +53,6 @@ func NewServer(config *conf.Config, logger *slog.Logger, router *route.Mux, tm *
 		httpServer: httpServer,
 		logger:     logger,
 		router:     router,
-		session:    session,
-		tm:         tm,
 		wg:         &sync.WaitGroup{},
 	}
 
@@ -73,16 +67,6 @@ func (s *Server) Config() *conf.Config {
 // Logger returns the logger for the server.
 func (s *Server) Logger() *slog.Logger {
 	return s.logger
-}
-
-// Session returns the session manager for the server.
-func (s *Server) Session() *scs.SessionManager {
-	return s.session
-}
-
-// TM returns the template manager for the server.
-func (s *Server) TM() *render.TemplateManager {
-	return s.tm
 }
 
 // Router returns the router for the server.

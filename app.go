@@ -43,12 +43,13 @@ type AppConfig struct {
 // App holds core components that most services need
 type App struct {
 	// core services
-	logger *slog.Logger
-	server *serve.Server
-	router *route.Mux
-	tm     *render.TemplateManager
-	config *conf.Config
-	events *EventBus
+	logger  *slog.Logger
+	server  *serve.Server
+	router  *route.Mux
+	tm      *render.TemplateManager
+	config  *conf.Config
+	events  *EventBus
+	session *scs.SessionManager
 
 	modules     map[string]Module
 	startOrder  []string
@@ -67,9 +68,20 @@ func New(cfg AppConfig) (*App, error) {
 	eventBus := NewEventBus(logger)
 
 	// Create template manager
-	tm, err := createTemplateManager(&cfg, logger)
-	if err != nil {
-		return nil, fmt.Errorf("error creating template manager: %w", err)
+	var tm *render.TemplateManager
+	if len(cfg.TemplateSources) > 0 {
+		var err error
+		tm, err = render.NewTemplateManager(
+			cfg.TemplateSources,
+			render.TemplateManagerOptions{
+				Extension: cfg.TemplateExt,
+				Funcs:     cfg.TemplateFuncs,
+				Logger:    logger,
+			})
+		if err != nil {
+			return nil, fmt.Errorf("error creating template manager: %w", err)
+		}
+
 	}
 
 	// Create session manager
@@ -80,17 +92,18 @@ func New(cfg AppConfig) (*App, error) {
 
 	// Create app
 	app := &App{
+		config:     cfg.Config,
 		logger:     logger,
 		events:     eventBus,
-		router:     router,
-		tm:         tm,
-		config:     cfg.Config,
 		modules:    make(map[string]Module),
+		router:     router,
+		session:    sm,
 		startOrder: make([]string, 0),
+		tm:         tm,
 	}
 
 	// Create server
-	app.server = serve.NewServer(cfg.Config, logger, router, tm, sm)
+	app.server = serve.NewServer(cfg.Config, logger, router)
 	app.server.OnShutdown(func(ctx context.Context) error {
 		return app.Stop(ctx)
 	})
@@ -194,7 +207,7 @@ func (a *App) Events() *EventBus { return a.events }
 func (a *App) Router() *route.Mux { return a.router }
 
 // Session returns the session manager instance for the app
-func (a *App) Session() *scs.SessionManager { return a.server.Session() }
+func (a *App) Session() *scs.SessionManager { return a.session }
 
 // TM returns the template manager instance for the app
 func (a *App) TM() *render.TemplateManager { return a.tm }
@@ -215,14 +228,15 @@ func (a *App) OnTemplateData(fn OnTemplateDataFunc) {
 // NewResponse creates a new Response instance with the TemplateManager.
 func (a *App) NewResponse(r *http.Request) (*render.Response, error) {
 	if a.tm == nil {
-		return nil, errors.New("template manager is not set")
+		return nil, fmt.Errorf("template manager not initialized - this app does not support rendering templates")
 	}
 
 	resp := render.NewResponse(a.tm).Data(a.NewTemplateData(r))
 	return resp, nil
 }
 
-// NewTemplateData returns a map of data that can be used in a Go template. It includes the current user, environment, version, and other useful information.
+// NewTemplateData returns a map of data that can be used in a Go template, API response, etc.
+// It includes the current user, environment, version, and other useful information.
 func (a *App) NewTemplateData(r *http.Request) map[string]any {
 	cacheBuster := func() string {
 		return time.Now().UTC().Format("20060102150405")
@@ -285,16 +299,6 @@ func createLogger(cfg *AppConfig) *slog.Logger {
 	}
 
 	return cfg.Logger
-}
-
-func createTemplateManager(cfg *AppConfig, logger *slog.Logger) (*render.TemplateManager, error) {
-	return render.NewTemplateManager(
-		cfg.TemplateSources,
-		render.TemplateManagerOptions{
-			Extension: cfg.TemplateExt,
-			Funcs:     cfg.TemplateFuncs,
-			Logger:    logger,
-		})
 }
 
 // createSessionStore creates a new session store based on the configuration

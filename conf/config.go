@@ -12,24 +12,26 @@ import (
 	"time"
 )
 
-// BaseConfig provides core configuration options
-type BaseConfig struct {
+// Config provides core configuration options
+type Config struct {
 	//Environment string            `json:"environment" env:"APP_ENVIRONMENT" default:"development"`
 	//Debug       bool              `json:"debug" env:"APP_DEBUG" default:"false"`
 	App         AppConfig         `json:"app"`
 	Company     CompanyConfig     `json:"company"`
+	Events      EventsConfig      `json:"events"`
 	Maintenance MaintenanceConfig `json:"maintenance"`
+	Session     SessionConfig     `json:"session"`
 	Server      ServerConfig      `json:"server"`
 	Database    DatabaseConfig    `json:"database"`
 	SMTP        SMPTConfig        `json:"smtp"`
 	Log         LogConfig         `json:"log"`
 }
 
-func (c *BaseConfig) IsDevelopment() bool {
+func (c *Config) IsDevelopment() bool {
 	return c.App.Environment == "development"
 }
 
-func (c *BaseConfig) IsProduction() bool {
+func (c *Config) IsProduction() bool {
 	return c.App.Environment == "production"
 }
 
@@ -39,9 +41,24 @@ type AppConfig struct {
 	SAASMode    bool   `json:"saas_mode" env:"SAAS_MODE" default:"false"`
 }
 
+type EventsConfig struct {
+	MaxHistory int  `json:"max_history" env:"EVENTS_MAX_HISTORY" default:"100"`
+	DebugMode  bool `json:"debug_mode" env:"EVENTS_DEBUG_MODE" default:"false"`
+}
+
 type MaintenanceConfig struct {
 	Enabled bool   `json:"enabled" env:"MAINTENANCE_ENABLED" default:"false"`
 	Message string `json:"message" env:"MAINTENANCE_MESSAGE" default:""`
+}
+
+type SessionConfig struct {
+	Lifetime      Duration `json:"lifetime" env:"SESSION_LIFETIME" default:"168h"`
+	CookiePersist bool     `json:"cookie_persist" env:"SESSION_COOKIE_PERSIST" default:"true"`
+	// Other same-site values: "None", "Strict"
+	CookieSameSite string `json:"cookie_same_site" env:"SESSION_COOKIE_SAME_SITE" default:"Lax"`
+	CookieSecure   bool   `json:"cookie_secure" env:"SESSION_COOKIE_SECURE" default:"true"`
+	CookieHTTPOnly bool   `json:"cookie_http_only" env:"SESSION_COOKIE_HTTP_ONLY" default:"true"`
+	CookiePath     string `json:"cookie_path" env:"SESSION_COOKIE_PATH" default:"/"`
 }
 
 type ServerConfig struct {
@@ -65,6 +82,7 @@ type DatabaseConfig struct {
 }
 
 type SMPTConfig struct {
+	Enabled    bool     `json:"enabled" env:"SMTP_ENABLED" default:"false"`
 	Host       string   `json:"host" env:"SMTP_HOST" default:"localhost"`
 	Port       int      `json:"port" env:"SMTP_PORT" default:"1025"`
 	Username   string   `json:"username" env:"SMTP_USERNAME" default:""`
@@ -95,7 +113,7 @@ type CompanyConfig struct {
 // SingleLineAddress returns a single line address string
 func (c CompanyConfig) SingleLineAddress() string {
 	if c.Address2 != "" {
-		return fmt.Sprintf("%s, %s, %s %s", c.Address, c.Address2, c.City, c.State, c.Zip)
+		return fmt.Sprintf("%s %s, %s, %s %s", c.Address, c.Address2, c.City, c.State, c.Zip)
 	}
 	return fmt.Sprintf("%s, %s, %s %s", c.Address, c.City, c.State, c.Zip)
 }

@@ -10,10 +10,10 @@ import (
 )
 
 func Example() {
-	// STEP1: Define a custom configuration struct that embeds BaseConfig
+	// STEP1: Define a custom configuration struct that embeds Config
 	type AppConfig struct {
-		conf.BaseConfig // Inherit base configuration
-		Redis           struct {
+		conf.Config // Inherit base configuration
+		Redis       struct {
 			Host    string        `json:"host" env:"REDIS_HOST" default:"localhost"`
 			Port    int           `json:"port" env:"REDIS_PORT" default:"6379"`
 			Timeout conf.Duration `json:"timeout" env:"REDIS_TIMEOUT" default:"5s"`
@@ -114,7 +114,7 @@ func ExampleDuration() {
 func ExampleBasicFlags() {
 	// STEP1: Define a custom configuration struct
 	type AppConfig struct {
-		conf.BaseConfig
+		conf.Config
 		API struct {
 			Endpoint string        `json:"endpoint" env:"API_ENDPOINT" default:"http://api.local"`
 			Timeout  conf.Duration `json:"timeout" env:"API_TIMEOUT" default:"30s"`
@@ -176,7 +176,7 @@ func ExampleBasicFlags() {
 	}
 
 	// STEP7: Apply flag overrides
-	conf.ApplyFlagOverrides(&cfg.BaseConfig, fs)
+	conf.ApplyFlagOverrides(&cfg.Config, fs)
 
 	// Apply other flag values that should override config
 	if apiTimeout != nil && *apiTimeout != 0 {

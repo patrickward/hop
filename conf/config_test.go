@@ -10,7 +10,7 @@ import (
 )
 
 type TestConfig struct {
-	conf.BaseConfig
+	conf.Config
 	API struct {
 		Endpoint    string        `json:"endpoint" env:"API_ENDPOINT" default:"http://api.local"`
 		Timeout     conf.Duration `json:"timeout" env:"API_TIMEOUT" default:"30s"`

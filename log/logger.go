@@ -69,8 +69,8 @@ func NewLogger(opts Options) *slog.Logger {
 			}))
 	}
 
-	if opts.Format == "text" {
-		return slog.New(slog.NewTextHandler(opts.Writer,
+	if opts.Format == "json" {
+		return slog.New(slog.NewJSONHandler(opts.Writer,
 			&slog.HandlerOptions{
 				AddSource:   opts.Verbose,
 				Level:       LevelFromString(opts.Level),
@@ -78,7 +78,7 @@ func NewLogger(opts Options) *slog.Logger {
 			}))
 	}
 
-	return slog.New(slog.NewJSONHandler(opts.Writer,
+	return slog.New(slog.NewTextHandler(opts.Writer,
 		&slog.HandlerOptions{
 			AddSource:   opts.Verbose,
 			Level:       LevelFromString(opts.Level),

@@ -10,40 +10,39 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/alexedwards/scs/v2"
-	"github.com/justinas/nosurf"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/patrickward/hop/conf"
 	"github.com/patrickward/hop/render"
-	"github.com/patrickward/hop/render/htmx"
-	"github.com/patrickward/hop/wrap"
+	"github.com/patrickward/hop/route"
 )
-
-// CleanupFunc is a function type that can be used for cleanup tasks when the server shuts down.
-type CleanupFunc func()
 
 // DataFunc is a function type that takes an HTTP request and a pointer to a map of data.
 // It represents a callback function that can be used to populate data for templates.
 type DataFunc func(r *http.Request, data *map[string]any)
 
 type Server struct {
-	config      *conf.BaseConfig
-	cleanupFunc CleanupFunc
-	dataFunc    DataFunc
-	httpServer  *http.Server
-	logger      *slog.Logger
-	router      *http.ServeMux
-	tm          *render.TemplateManager
-	session     *scs.SessionManager
-	wg          *sync.WaitGroup
+	config     *conf.Config
+	onShutdown func(context.Context) error
+	dataFunc   DataFunc
+	httpServer *http.Server
+	logger     *slog.Logger
+	//router      *http.ServeMux
+	router  *route.Mux
+	tm      *render.TemplateManager
+	session *scs.SessionManager
+	wg      *sync.WaitGroup
 }
 
 // NewServer creates a new server with the given configuration and logger.
-func NewServer(config *conf.BaseConfig, logger *slog.Logger, tm *render.TemplateManager, session *scs.SessionManager) *Server {
-	router := http.NewServeMux()
+func NewServer(config *conf.Config, logger *slog.Logger, router *route.Mux, tm *render.TemplateManager, session *scs.SessionManager) *Server {
+	//router := http.NewServeMux()
+	if router == nil {
+		router = route.New()
+	}
+
 	httpServer := &http.Server{
 		Addr:         fmt.Sprintf(":%d", config.Server.Port),
 		Handler:      router,
@@ -66,8 +65,8 @@ func NewServer(config *conf.BaseConfig, logger *slog.Logger, tm *render.Template
 	return srv
 }
 
-// BaseConfig returns the server configuration.
-func (s *Server) BaseConfig() *conf.BaseConfig {
+// Config returns the server configuration.
+func (s *Server) Config() *conf.Config {
 	return s.config
 }
 
@@ -86,49 +85,14 @@ func (s *Server) TM() *render.TemplateManager {
 	return s.tm
 }
 
-// AddRoute adds a new route to the server, using the newer v1.22 http.Handler interface. It takes a pattern, an http.Handler, and an optional list of middleware.
-func (s *Server) AddRoute(pattern string, handler http.Handler, middleware ...wrap.Middleware) {
-	if len(middleware) > 0 {
-		// Create a chain of middleware and wrap the handler
-		chain := wrap.New(middleware...).Then(handler)
-		s.router.Handle(pattern, chain)
-		return
-	}
-	s.router.Handle(pattern, handler)
+// Router returns the router for the server.
+func (s *Server) Router() *route.Mux {
+	return s.router
 }
 
-// AddChainedRoute adds a new route to the server with a chain of middleware
-// It takes a pattern, an http.Handler, and a wrap.Chain struct
-func (s *Server) AddChainedRoute(pattern string, handler http.Handler, chain wrap.Chain) {
-	s.router.Handle(pattern, chain.Then(handler))
-}
-
-// AddRoutes adds multiple routes to the server. It takes a map of patterns to http.Handlers and an optional list of middleware.
-func (s *Server) AddRoutes(routes map[string]http.Handler, middleware ...wrap.Middleware) {
-	for pattern, handler := range routes {
-		if len(middleware) > 0 {
-			s.AddRoute(pattern, handler, middleware...)
-			continue
-		}
-		s.AddRoute(pattern, handler)
-	}
-}
-
-// AddChainedRoutes adds multiple routes to the server with a chain of middleware
-func (s *Server) AddChainedRoutes(routes map[string]http.Handler, chain wrap.Chain) {
-	for pattern, handler := range routes {
-		s.AddChainedRoute(pattern, handler, chain)
-	}
-}
-
-// RegisterCleanup registers a cleanup function to be called when the server shuts down.
-func (s *Server) RegisterCleanup(fn func()) {
-	s.cleanupFunc = fn
-}
-
-// RegisterTemplateData registers a function that populates template data each time a template is rendered.
-func (s *Server) RegisterTemplateData(fn DataFunc) {
-	s.dataFunc = fn
+// OnShutdown registers a shutdown handler to be called before the server stops
+func (s *Server) OnShutdown(fn func(context.Context) error) {
+	s.onShutdown = fn
 }
 
 // BackgroundTask runs a function in a goroutine, and reports any errors to the server's error logger.
@@ -150,58 +114,6 @@ func (s *Server) BackgroundTask(r *http.Request, fn func() error) {
 			s.ReportServerError(r, err)
 		}
 	}()
-}
-
-// CacheBuster returns a string that can be used to bust the cache on static assets.
-func (s *Server) CacheBuster() string {
-	return time.Now().Format("20060102150405")
-}
-
-// NewResponse creates a new Response instance with the TemplateManager.
-func (s *Server) NewResponse(r *http.Request) (*render.Response, error) {
-	if s.tm == nil {
-		return nil, errors.New("template manager is not set")
-	}
-
-	resp := render.NewResponse(s.tm)
-	data := s.NewTemplateData(r)
-	resp.Data(data)
-	return resp, nil
-}
-
-// NewTemplateData returns a map of data that can be used in a Go template. It includes the current user, environment, version, and other useful information.
-func (s *Server) NewTemplateData(r *http.Request) map[string]any {
-	// Check if this is the home page.
-	isHome := r.URL.Path == "/"
-
-	//prodCSS := strings.TrimSpace(string(assets.CSSHash))
-	//prodJS := strings.TrimSpace(string(assets.JSHash))
-	//prodCSSFile := fmt.Sprintf("/static/css/app.min.%s.css", prodCSS)
-	//prodJSFile := fmt.Sprintf("/static/js/app.min.%s.js", prodJS)
-
-	data := map[string]any{
-		//"CurrentUser":        auth.GetCurrentUserFromContext(r),
-		"Env":                s.config.App.Environment,
-		"IsDevelopment":      s.config.App.Environment == "development",
-		"IsProduction":       s.config.App.Environment == "production",
-		"CSRFToken":          nosurf.Token(r),
-		"BaseURL":            s.config.Server.BaseURL,
-		"CacheBuster":        s.CacheBuster,
-		"RequestPath":        r.URL.Path,
-		"IsHome":             isHome,
-		"IsHTMXRequest":      htmx.IsHtmxRequest(r),
-		"IsBoostedRequest":   htmx.IsBoostedRequest(r),
-		"IsAnyHtmxRequest":   htmx.IsAnyHtmxRequest(r),
-		"MaintenanceEnabled": s.config.Maintenance.Enabled,
-		"MaintenanceMessage": s.config.Maintenance.Message,
-		"Company":            s.config.Company,
-	}
-
-	if s.dataFunc != nil {
-		s.dataFunc(r, &data)
-	}
-
-	return data
 }
 
 // Start starts the server and listens for incoming requests. It will block until the server is shut down.
@@ -268,16 +180,19 @@ func (s *Server) Start() error {
 		)
 		defer shutdownCancel()
 
+		// Call onShutdown handler if registered
+		if s.onShutdown != nil {
+			if err := s.onShutdown(shutdownCtx); err != nil {
+				s.logger.Error("onShutdown error", slog.String("error", err.Error()))
+			}
+		}
+
 		s.logger.Info("shutting down http server",
 			slog.Duration("timeout", serverTimeout))
 
 		// Proceed with server shutdown
 		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
 			return fmt.Errorf("shutdown error: %w", err)
-		}
-
-		if s.cleanupFunc != nil {
-			s.cleanupFunc()
 		}
 
 		return nil

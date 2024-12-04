@@ -10,7 +10,7 @@ func NewFlagSet(appName string, errorHandling flag.ErrorHandling) *flag.FlagSet 
 	return fs
 }
 
-//func ParseAndApplyFlags(cfg *BaseConfig, fs *flag.FlagSet) error {
+//func ParseAndApplyFlags(cfg *Config, fs *flag.FlagSet) error {
 //	if err := fs.Parse(os.Args[1:]); err != nil {
 //		return err
 //	}
@@ -30,7 +30,7 @@ func BasicFlags(fs *flag.FlagSet) {
 }
 
 // ApplyFlagOverrides ensures that if a basic flag is set, it overrides the config
-func ApplyFlagOverrides(cfg *BaseConfig, fs *flag.FlagSet) {
+func ApplyFlagOverrides(cfg *Config, fs *flag.FlagSet) {
 	//if fs.Lookup("debug").Value.String() == "true" {
 	//	cfg.App.Debug = true
 	//}

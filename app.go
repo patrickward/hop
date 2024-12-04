@@ -42,21 +42,19 @@ type AppConfig struct {
 
 // App holds core components that most services need
 type App struct {
-	// core services
-	logger  *slog.Logger
-	server  *serve.Server
-	router  *route.Mux
-	tm      *render.TemplateManager
-	config  *conf.Config
-	events  *EventBus
-	session *scs.SessionManager
-
-	modules     map[string]Module
-	startOrder  []string
-	dataModules []TemplateDataModule
-	mu          sync.RWMutex
-
-	onTemplateData OnTemplateDataFunc
+	firstError     error                   // first error that occurred during initialization
+	logger         *slog.Logger            // logger instance
+	server         *serve.Server           // server instance
+	router         *route.Mux              // router instance
+	tm             *render.TemplateManager // template manager instance
+	config         *conf.Config            // configuration
+	events         *EventBus               // event bus instance
+	session        *scs.SessionManager     // session manager instance
+	modules        map[string]Module       // map of modules by ID
+	startOrder     []string                // order in which modules should be started / stopped in reverse
+	dataModules    []TemplateDataModule    // modules that provide template data
+	mu             sync.RWMutex            // mutex for modules map
+	onTemplateData OnTemplateDataFunc      // callback function for populating template data
 }
 
 // New creates a new application with core components
@@ -111,18 +109,32 @@ func New(cfg AppConfig) (*App, error) {
 	return app, nil
 }
 
+// -----------------------------------------------------------------------------
+
+// Error returns the first error that occurred during initialization
+func (a *App) Error() error {
+	return a.firstError
+}
+
 // RegisterModule adds a module to the app
-func (a *App) RegisterModule(m Module) error {
+func (a *App) RegisterModule(m Module) *App {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	// If we already have an error, don't bother trying to register more modules
+	if a.firstError != nil {
+		return a
+	}
+
 	id := m.ID()
 	if _, exists := a.modules[id]; exists {
-		return fmt.Errorf("module already registered: %s", id)
+		a.firstError = fmt.Errorf("module already registered: %s", id)
+		return a
 	}
 
 	if err := m.Init(); err != nil {
-		return fmt.Errorf("failed to initialize module %s: %s", id, err)
+		a.firstError = fmt.Errorf("failed to initialize module %s: %s", id, err)
+		return a
 	}
 
 	a.modules[id] = m
@@ -136,7 +148,7 @@ func (a *App) RegisterModule(m Module) error {
 		h.RegisterRoutes(a.router)
 	}
 
-	return nil
+	return a
 }
 
 // GetModule returns a module by ID
@@ -169,6 +181,12 @@ func (a *App) Start(ctx context.Context) error {
 				a.logger.Error("failed to start module %s: %w", id, err)
 			}
 		}
+	}
+
+	// Start the server
+	if err := a.server.Start(); err != nil {
+		errs = append(errs, err)
+		a.logger.Error("failed to start server", slog.String("error", err.Error()))
 	}
 
 	return errors.Join(errs...)
@@ -225,6 +243,11 @@ func (a *App) OnTemplateData(fn OnTemplateDataFunc) {
 	a.onTemplateData = fn
 }
 
+// OnShutdown registers a function to be called when the app is shutting down
+func (a *App) OnShutdown(fn func(context.Context) error) {
+	a.server.OnShutdown(fn)
+}
+
 // NewResponse creates a new Response instance with the TemplateManager.
 func (a *App) NewResponse(r *http.Request) (*render.Response, error) {
 	if a.tm == nil {
@@ -277,6 +300,45 @@ func (a *App) NewTemplateData(r *http.Request) map[string]any {
 	}
 
 	return data
+}
+
+// -----------------------------------------------------------------------------
+// Route Functions (TEMPORARY)
+// -----------------------------------------------------------------------------
+
+// AddRoute adds a new route to the server, using the newer v1.22 http.Handler interface. It takes a pattern, an http.Handler, and an optional list of middleware.
+func (a *App) AddRoute(pattern string, handler http.Handler, middleware ...route.Middleware) {
+	if len(middleware) > 0 {
+		// Create a chain of middleware and wrap the handler
+		chain := route.NewChain(middleware...).Then(handler)
+		a.router.Handle(pattern, chain)
+		return
+	}
+	a.router.Handle(pattern, handler)
+}
+
+// AddChainedRoute adds a new route to the server with a chain of middleware
+// It takes a pattern, an http.Handler, and a route.Chain struct
+func (a *App) AddChainedRoute(pattern string, handler http.Handler, chain route.Chain) {
+	a.router.Handle(pattern, chain.Then(handler))
+}
+
+// AddRoutes adds multiple routes to the server. It takes a map of patterns to http.Handlers and an optional list of middleware.
+func (a *App) AddRoutes(routes map[string]http.Handler, middleware ...route.Middleware) {
+	for pattern, handler := range routes {
+		if len(middleware) > 0 {
+			a.AddRoute(pattern, handler, middleware...)
+			continue
+		}
+		a.AddRoute(pattern, handler)
+	}
+}
+
+// AddChainedRoutes adds multiple routes to the server with a chain of middleware
+func (a *App) AddChainedRoutes(routes map[string]http.Handler, chain route.Chain) {
+	for pattern, handler := range routes {
+		a.AddChainedRoute(pattern, handler, chain)
+	}
 }
 
 // -----------------------------------------------------------------------------

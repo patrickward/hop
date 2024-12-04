@@ -84,7 +84,9 @@ func (m *Mux) handle(pattern string, handler http.HandlerFunc) {
 
 func (m *Mux) handleNotFound(w http.ResponseWriter, r *http.Request) {
 	if m.notFoundHandler != nil {
-		m.notFoundHandler(w, r)
+		// Wrap the not found handler with the middleware chain
+		h := m.middleware.ThenFunc(m.notFoundHandler)
+		h.ServeHTTP(w, r)
 		return
 	}
 	http.NotFound(w, r)
@@ -183,4 +185,58 @@ func (m *Mux) DumpRoutes() (string, error) {
 		return "", err
 	}
 	return string(b), nil
+}
+
+// -----------------------------------------------------------------------------
+// Static file serving
+// -----------------------------------------------------------------------------
+
+// ServeStatic registers a file server for a directory of static files.
+// The provided pattern should use Go 1.22's enhanced patterns, e.g. "/static/{file...}"
+// This bypasses the global middleware chain for better performance.
+func (m *Mux) ServeStatic(pattern string, fs http.FileSystem) {
+	fileServer := http.FileServer(fs)
+	// Register directly with ServeMux to bypass middleware
+	m.ServeMux.Handle(pattern, fileServer)
+}
+
+// ServeFiles registers multiple individual files from a filesystem at their respective paths.
+// This is useful for serving files like favicons, manifests, and other root-level files.
+// All files will be served from the same filesystem but at different paths.
+func (m *Mux) ServeFiles(fs http.FileSystem, paths ...string) {
+	fileServer := http.FileServer(fs)
+	for _, path := range paths {
+		// Register each path directly with ServeMux
+		m.ServeMux.Handle(path, fileServer)
+	}
+}
+
+// ServeFileFrom serves a single file from a filesystem at a specific URL path.
+// This is useful when you want to serve a specific file at a custom URL path.
+func (m *Mux) ServeFileFrom(urlPath string, fs http.FileSystem, filePath string) {
+	m.ServeMux.HandleFunc(urlPath, func(w http.ResponseWriter, r *http.Request) {
+		f, err := fs.Open(filePath)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		defer func(f http.File) {
+			_ = f.Close()
+		}(f)
+
+		stat, err := f.Stat()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		http.ServeContent(w, r, filePath, stat.ModTime(), f)
+	})
+}
+
+// ServePrefix serves files under a URL prefix, stripping the prefix before looking up the file.
+// This is useful for serving files from a subdirectory at a different URL path.
+func (m *Mux) ServePrefix(pattern string, prefix string, fs http.FileSystem) {
+	handler := http.StripPrefix(prefix, http.FileServer(fs))
+	m.ServeMux.Handle(pattern, handler)
 }

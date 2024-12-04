@@ -37,7 +37,7 @@ func TestRecovery(t *testing.T) {
 		},
 		{
 			name: "panic with custom handler",
-			handler: func(w http.ResponseWriter, r *http.Request, err any) {
+			handler: func(w http.ResponseWriter, r *http.Request, err error) {
 				http.Error(w, "custom error", http.StatusTeapot)
 			},
 			panicValue:     "something went wrong",

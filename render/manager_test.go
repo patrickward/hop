@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/patrickward/hop/render"
+	template2 "github.com/patrickward/hop/render"
 	"github.com/patrickward/hop/render/testdata/source1"
 	"github.com/patrickward/hop/render/testdata/source2"
 )
@@ -36,7 +36,7 @@ func (td TestData) toMap() map[string]interface{} {
 func TestTemplateManager(t *testing.T) {
 	tests := []struct {
 		name           string
-		sources        render.Sources
+		sources        template2.Sources
 		layout         string
 		page           string
 		data           TestData
@@ -48,7 +48,7 @@ func TestTemplateManager(t *testing.T) {
 	}{
 		{
 			name: "basic page with base layout from source1",
-			sources: render.Sources{
+			sources: template2.Sources{
 				"": source1.FS,
 			},
 			layout: "base",
@@ -75,7 +75,7 @@ func TestTemplateManager(t *testing.T) {
 		},
 		{
 			name: "basic page with base layout from source1 and prefixed path",
-			sources: render.Sources{
+			sources: template2.Sources{
 				"foobar": source1.FS,
 			},
 			layout: "base",
@@ -102,7 +102,7 @@ func TestTemplateManager(t *testing.T) {
 		},
 		{
 			name: "admin page with admin layout from source1",
-			sources: render.Sources{
+			sources: template2.Sources{
 				"": source1.FS,
 			},
 			layout: "admin",
@@ -129,7 +129,7 @@ func TestTemplateManager(t *testing.T) {
 		},
 		{
 			name: "multiple sources with override",
-			sources: render.Sources{
+			sources: template2.Sources{
 				"":        source1.FS,
 				"source2": source2.FS,
 			},
@@ -153,7 +153,7 @@ func TestTemplateManager(t *testing.T) {
 		},
 		{
 			name: "non-existent layout",
-			sources: render.Sources{
+			sources: template2.Sources{
 				"": source1.FS,
 			},
 			layout:         "missing",
@@ -169,7 +169,7 @@ func TestTemplateManager(t *testing.T) {
 		},
 		{
 			name: "non-existent page",
-			sources: render.Sources{
+			sources: template2.Sources{
 				"": source1.FS,
 			},
 			layout:         "base",
@@ -194,9 +194,9 @@ func TestTemplateManager(t *testing.T) {
 		}
 		t.Run(tt.name, func(t *testing.T) {
 			// Initialize template manager and load templates
-			tm, err := render.NewTemplateManager(
+			tm, err := template2.NewTemplateManager(
 				tt.sources,
-				render.TemplateManagerOptions{
+				template2.TemplateManagerOptions{
 					Extension: ".gtml",
 					Funcs:     funcMap,
 					Logger:    logger,

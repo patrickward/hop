@@ -247,25 +247,3 @@ func (tm *TemplateManager) viewsPath(path ...string) string {
 	// For each path, append to the ViewsDir, separated by a slash
 	return fmt.Sprintf("%s/%s", ViewsDir, strings.Join(path, "/"))
 }
-
-type logLevel string
-
-const (
-	logLevelInfo  logLevel = "info"
-	logLevelWarn  logLevel = "warn"
-	logLevelError logLevel = "error"
-)
-
-// log
-func (tm *TemplateManager) log(level logLevel, msg string, args ...any) {
-	if tm.logger != nil {
-		switch level {
-		case logLevelInfo:
-			tm.logger.Info(msg, args...)
-		case logLevelWarn:
-			tm.logger.Warn(msg, args...)
-		case logLevelError:
-			tm.logger.Error(msg, args...)
-		}
-	}
-}

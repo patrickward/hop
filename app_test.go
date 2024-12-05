@@ -127,7 +127,8 @@ func TestModuleRegistration(t *testing.T) {
 			require.NoError(t, err)
 
 			for i, module := range tt.modules {
-				err := app.RegisterModule(module)
+				app.RegisterModule(module)
+				err := app.Error()
 				if tt.wantErrs[i] {
 					assert.Error(t, err)
 				} else {
@@ -191,7 +192,8 @@ func TestModuleStart(t *testing.T) {
 			require.NoError(t, err)
 
 			for _, m := range tt.modules {
-				err := app.RegisterModule(&m)
+				app.RegisterModule(&m)
+				err := app.Error()
 				require.NoError(t, err)
 			}
 
@@ -264,7 +266,8 @@ func TestModuleStop(t *testing.T) {
 			require.NoError(t, err)
 
 			for _, m := range tt.modules {
-				err := app.RegisterModule(&m)
+				app.RegisterModule(&m)
+				err := app.Error()
 				require.NoError(t, err)
 			}
 
@@ -349,7 +352,8 @@ func TestModuleLifecycle(t *testing.T) {
 			app, err := createTestApp(t)
 			require.NoError(t, err)
 
-			err = app.RegisterModule(&tt.module)
+			app.RegisterModule(&tt.module)
+			err = app.Error()
 			require.NoError(t, err)
 
 			// Start context
@@ -428,7 +432,8 @@ func TestHTTPModuleRoutes(t *testing.T) {
 			app, err := createTestApp(t)
 			require.NoError(t, err)
 
-			err = app.RegisterModule(tt.module)
+			app.RegisterModule(tt.module)
+			err = app.Error()
 			require.NoError(t, err)
 
 			w := newTestResponseRecorder()
@@ -597,7 +602,8 @@ func TestTemplateDataModules(t *testing.T) {
 			// Register all modules and collect template data modules for verification
 			var templateModules []*mockTemplateDataModule
 			for _, m := range tt.modules {
-				err := app.RegisterModule(m)
+				app.RegisterModule(m)
+				err = app.Error()
 				require.NoError(t, err)
 				if tdm, ok := m.(*mockTemplateDataModule); ok {
 					templateModules = append(templateModules, tdm)

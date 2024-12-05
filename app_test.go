@@ -204,7 +204,7 @@ func TestModuleStart(t *testing.T) {
 				cancel()
 			}
 
-			err = app.Start(ctx)
+			err = app.StartModules(ctx)
 			if len(tt.wantErrs) > 0 {
 				assert.Error(t, err)
 				for _, wantErr := range tt.wantErrs {
@@ -272,7 +272,7 @@ func TestModuleStop(t *testing.T) {
 			}
 
 			// We need to start before we can stop
-			err = app.Start(context.Background())
+			err = app.StartModules(context.Background())
 			require.NoError(t, err)
 
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -364,7 +364,7 @@ func TestModuleLifecycle(t *testing.T) {
 			}
 
 			// Test Start
-			err = app.Start(startCtx)
+			err = app.StartModules(startCtx)
 			if tt.wantStartErr {
 				assert.Error(t, err)
 				return
@@ -453,6 +453,9 @@ func createTestApp(t *testing.T) (*hop.App, error) {
 		Config: &conf.Config{
 			App: conf.AppConfig{
 				Environment: "test",
+			},
+			Server: conf.ServerConfig{
+				Port: 4444,
 			},
 		},
 	}
@@ -636,4 +639,39 @@ func TestTemplateDataModules(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFullServerStart(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping server test in short mode")
+	}
+
+	app, err := createTestApp(t)
+	require.NoError(t, err)
+
+	app.Router().HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Start server in a goroutine
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- app.Start(context.Background())
+	}()
+
+	// Give server time to start
+	time.Sleep(100 * time.Millisecond)
+
+	// Test server is running
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/health", app.Config().Server.Port))
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode) // Or whatever status you expect
+
+	// Shutdown server
+	err = app.ShutdownServer(context.Background())
+	require.NoError(t, err)
+
+	// Check for server errors
+	serverErr := <-errCh
+	assert.NoError(t, serverErr)
 }

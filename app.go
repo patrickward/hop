@@ -165,8 +165,8 @@ func (a *App) GetModule(id string) (Module, error) {
 	return m, nil
 }
 
-// Start initializes the app and starts all modules
-func (a *App) Start(ctx context.Context) error {
+// StartModules initializes and starts all modules without starting the server
+func (a *App) StartModules(ctx context.Context) error {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
@@ -184,16 +184,31 @@ func (a *App) Start(ctx context.Context) error {
 		}
 	}
 
-	// Start the server
-	if err := a.server.Start(); err != nil {
-		errs = append(errs, err)
-		a.logger.Error("failed to start server", slog.String("error", err.Error()))
-	}
-
 	return errors.Join(errs...)
 }
 
-// Stop gracefully shuts down the app and all modules
+// Start initializes the app and starts all modules and the server
+func (a *App) Start(ctx context.Context) error {
+	// First start all modules
+	if err := a.StartModules(ctx); err != nil {
+		return err
+	}
+
+	// Then start the server (this will block)
+	if err := a.server.Start(); err != nil {
+		a.logger.Error("failed to start server", slog.String("error", err.Error()))
+		return err
+	}
+
+	return nil
+}
+
+// ShutdownServer gracefully shuts down the server
+func (a *App) ShutdownServer(ctx context.Context) error {
+	return a.server.Shutdown(ctx)
+}
+
+// Stop gracefully shuts down the app and all modules. This is only called when the server is shutting down.
 func (a *App) Stop(ctx context.Context) error {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -367,7 +382,7 @@ func createLogger(cfg *AppConfig) *slog.Logger {
 // createSessionStore creates a new session store based on the configuration
 // TODO: Add support for other session stores
 func createSessionStore(cfg *AppConfig) *scs.SessionManager {
-	sameSite := sameSiteFromString(cfg.Config.Session.CookieSameSite)
+	sameSite := utils.SameSiteFromString(cfg.Config.Session.CookieSameSite)
 
 	sessionMgr := scs.New()
 	sessionMgr.Lifetime = cfg.Config.Session.Lifetime.Duration
@@ -382,17 +397,4 @@ func createSessionStore(cfg *AppConfig) *scs.SessionManager {
 	}
 
 	return sessionMgr
-}
-
-func sameSiteFromString(key string) http.SameSite {
-	switch key {
-	case "lax":
-		return http.SameSiteLaxMode
-	case "strict":
-		return http.SameSiteStrictMode
-	case "none":
-		return http.SameSiteNoneMode
-	default:
-		return http.SameSiteDefaultMode
-	}
 }

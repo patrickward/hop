@@ -1,7 +1,9 @@
-package hop_test
+package events_test
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"os"
 	"sync"
 	"testing"
@@ -10,8 +12,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/patrickward/hop"
+	"github.com/patrickward/hop/events"
 )
+
+func newTestLogger(out io.Writer) *slog.Logger {
+	return slog.New(slog.NewTextHandler(out, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+}
 
 func TestNewEvent(t *testing.T) {
 	tests := []struct {
@@ -38,7 +46,7 @@ func TestNewEvent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			event := hop.NewEvent(tt.signature, tt.payload)
+			event := events.NewEvent(tt.signature, tt.payload)
 
 			assert.NotEmpty(t, event.ID)
 			assert.Equal(t, tt.signature, event.Signature)
@@ -49,11 +57,11 @@ func TestNewEvent(t *testing.T) {
 }
 
 func TestEventBus_On(t *testing.T) {
-	bus := hop.NewEventBus(newTestLogger(os.Stdout))
+	bus := events.NewEventBus(newTestLogger(os.Stdout))
 	var handlerCalled bool
-	var receivedEvent hop.Event
+	var receivedEvent events.Event
 
-	handler := func(ctx context.Context, event hop.Event) {
+	handler := func(ctx context.Context, event events.Event) {
 		handlerCalled = true
 		receivedEvent = event
 	}
@@ -120,10 +128,10 @@ func TestEventBus_Wildcards(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bus := hop.NewEventBus(newTestLogger(os.Stdout))
+			bus := events.NewEventBus(newTestLogger(os.Stdout))
 			var handlerCalled bool
 
-			bus.On(tt.pattern, func(ctx context.Context, event hop.Event) {
+			bus.On(tt.pattern, func(ctx context.Context, event events.Event) {
 				handlerCalled = true
 			})
 
@@ -136,14 +144,14 @@ func TestEventBus_Wildcards(t *testing.T) {
 }
 
 func TestEventBus_MultipleHandlers(t *testing.T) {
-	bus := hop.NewEventBus(newTestLogger(os.Stdout))
+	bus := events.NewEventBus(newTestLogger(os.Stdout))
 	var mu sync.Mutex
 	handlerCalls := make(map[string]bool)
 
 	handlers := []string{"handler1", "handler2", "handler3"}
 	for _, name := range handlers {
 		handlerName := name // Capture for closure
-		bus.On("test.event", func(ctx context.Context, event hop.Event) {
+		bus.On("test.event", func(ctx context.Context, event events.Event) {
 			mu.Lock()
 			handlerCalls[handlerName] = true
 			mu.Unlock()
@@ -161,10 +169,10 @@ func TestEventBus_MultipleHandlers(t *testing.T) {
 }
 
 func TestEventBus_EmitSync(t *testing.T) {
-	bus := hop.NewEventBus(newTestLogger(os.Stdout))
+	bus := events.NewEventBus(newTestLogger(os.Stdout))
 	var handlerCalled bool
 
-	bus.On("test.event", func(ctx context.Context, event hop.Event) {
+	bus.On("test.event", func(ctx context.Context, event events.Event) {
 		time.Sleep(10 * time.Millisecond) // Simulate work
 		handlerCalled = true
 	})
@@ -177,16 +185,16 @@ func TestEventBus_EmitSync(t *testing.T) {
 }
 
 func TestEventBus_PanicRecovery(t *testing.T) {
-	bus := hop.NewEventBus(newTestLogger(os.Stdout))
+	bus := events.NewEventBus(newTestLogger(os.Stdout))
 	var secondHandlerCalled bool
 
 	// First handler panics
-	bus.On("test.event", func(ctx context.Context, event hop.Event) {
+	bus.On("test.event", func(ctx context.Context, event events.Event) {
 		panic("test panic")
 	})
 
 	// Second handler should still run
-	bus.On("test.event", func(ctx context.Context, event hop.Event) {
+	bus.On("test.event", func(ctx context.Context, event events.Event) {
 		secondHandlerCalled = true
 	})
 
@@ -200,11 +208,11 @@ func TestEventBus_PanicRecovery(t *testing.T) {
 }
 
 func TestEventBus_ConcurrentEmit(t *testing.T) {
-	bus := hop.NewEventBus(newTestLogger(os.Stdout))
+	bus := events.NewEventBus(newTestLogger(os.Stdout))
 	var mu sync.Mutex
 	handlerCalls := make(map[string]int)
 
-	bus.On("test.event", func(ctx context.Context, event hop.Event) {
+	bus.On("test.event", func(ctx context.Context, event events.Event) {
 		mu.Lock()
 		handlerCalls[event.ID]++
 		mu.Unlock()
@@ -232,11 +240,11 @@ func TestEventBus_ConcurrentEmit(t *testing.T) {
 }
 
 func TestEventBus_ContextCancellation(t *testing.T) {
-	bus := hop.NewEventBus(newTestLogger(os.Stdout))
+	bus := events.NewEventBus(newTestLogger(os.Stdout))
 	ctx, cancel := context.WithCancel(context.Background())
 	var handlerStarted, handlerCompleted bool
 
-	bus.On("test.event", func(ctx context.Context, event hop.Event) {
+	bus.On("test.event", func(ctx context.Context, event events.Event) {
 		handlerStarted = true
 		<-ctx.Done() // Wait for cancellation
 		handlerCompleted = true
@@ -254,8 +262,8 @@ func TestEventBus_ContextCancellation(t *testing.T) {
 }
 
 func BenchmarkEventEmit(b *testing.B) {
-	bus := hop.NewEventBus(newTestLogger(os.Stdout))
-	bus.On("bench.event", func(ctx context.Context, event hop.Event) {})
+	bus := events.NewEventBus(newTestLogger(os.Stdout))
+	bus.On("bench.event", func(ctx context.Context, event events.Event) {})
 
 	ctx := context.Background()
 	b.ResetTimer()

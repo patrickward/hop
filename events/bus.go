@@ -1,4 +1,4 @@
-package hop
+package events
 
 import (
 	"context"
@@ -7,89 +7,67 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 var eventID atomic.Uint64
 
-// Event represents a system event with a simplified structure
-type Event struct {
-	ID        string    `json:"id"`
-	Signature string    `json:"signature"` // e.g. "hop.system.start"
-	Payload   any       `json:"payload,omitempty"`
-	Timestamp time.Time `json:"timestamp"`
-}
-
-// EventHandler processes an event
-type EventHandler func(ctx context.Context, event Event)
-
-// EventBus manages event publishing and subscription
-type EventBus struct {
-	handlers map[string][]EventHandler // key is the event signature
+// Bus manages event publishing and subscription
+type Bus struct {
+	handlers map[string][]Handler // key is the event signature
 	logger   *slog.Logger
 	mu       sync.RWMutex
 }
 
 // NewEventBus creates a new event bus
-func NewEventBus(logger *slog.Logger) *EventBus {
+func NewEventBus(logger *slog.Logger) *Bus {
 	if logger == nil {
 		panic("logger is required for event bus")
 	}
 
-	return &EventBus{
-		handlers: make(map[string][]EventHandler),
+	return &Bus{
+		handlers: make(map[string][]Handler),
 		logger:   logger,
-	}
-}
-
-// NewEvent creates an event with the given signature and optional payload
-func NewEvent(signature string, payload any) Event {
-	return Event{
-		ID:        generateEventID(),
-		Signature: signature,
-		Payload:   payload,
-		Timestamp: time.Now().UTC(),
 	}
 }
 
 // On registers a handler for an event signature
 // Supports wildcards: "hop.*" or "*.system.start"
-func (eb *EventBus) On(signature string, handler EventHandler) {
-	eb.mu.Lock()
-	defer eb.mu.Unlock()
+func (b *Bus) On(signature string, handler Handler) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
-	if eb.handlers[signature] == nil {
-		eb.handlers[signature] = []EventHandler{}
+	if b.handlers[signature] == nil {
+		b.handlers[signature] = []Handler{}
 	}
-	eb.handlers[signature] = append(eb.handlers[signature], handler)
+	b.handlers[signature] = append(b.handlers[signature], handler)
 
 	source, eventType := parseSignature(signature)
-	eb.logger.Debug("event handler registered",
+	b.logger.Debug("event handler registered",
 		slog.String("signature", signature),
 		slog.String("source", source),
 		slog.String("type", eventType))
 }
 
 // Emit sends an event to all registered handlers asynchronously
-func (eb *EventBus) Emit(ctx context.Context, signature string, payload any) {
+func (b *Bus) Emit(ctx context.Context, signature string, payload any) {
 	event := NewEvent(signature, payload)
-	eb.mu.RLock()
-	var matchingHandlers []EventHandler
-	for pattern, handlers := range eb.handlers {
+	b.mu.RLock()
+	var matchingHandlers []Handler
+	for pattern, handlers := range b.handlers {
 		if matchSignature(pattern, event.Signature) {
 			matchingHandlers = append(matchingHandlers, handlers...)
 		}
 	}
-	eb.mu.RUnlock()
+	b.mu.RUnlock()
 
 	source, eventType := parseSignature(event.Signature)
-	eb.logger.Debug("emitting event",
+	b.logger.Debug("emitting event",
 		slog.String("signature", event.Signature),
 		slog.String("source", source),
 		slog.String("type", eventType))
 
 	if len(matchingHandlers) == 0 {
-		eb.logger.Debug("no handlers for event",
+		b.logger.Debug("no handlers for event",
 			slog.String("signature", event.Signature))
 		return
 	}
@@ -99,7 +77,7 @@ func (eb *EventBus) Emit(ctx context.Context, signature string, payload any) {
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
-					eb.logger.Error("panic in event handler",
+					b.logger.Error("panic in event handler",
 						slog.Any("panic", r),
 						slog.String("signature", event.Signature))
 				}
@@ -111,16 +89,16 @@ func (eb *EventBus) Emit(ctx context.Context, signature string, payload any) {
 }
 
 // EmitSync sends an event and waits for all handlers to complete
-func (eb *EventBus) EmitSync(ctx context.Context, signature string, payload any) {
+func (b *Bus) EmitSync(ctx context.Context, signature string, payload any) {
 	event := NewEvent(signature, payload)
-	eb.mu.RLock()
-	var matchingHandlers []EventHandler
-	for pattern, handlers := range eb.handlers {
+	b.mu.RLock()
+	var matchingHandlers []Handler
+	for pattern, handlers := range b.handlers {
 		if matchSignature(pattern, event.Signature) {
 			matchingHandlers = append(matchingHandlers, handlers...)
 		}
 	}
-	eb.mu.RUnlock()
+	b.mu.RUnlock()
 
 	if len(matchingHandlers) == 0 {
 		return
@@ -135,7 +113,7 @@ func (eb *EventBus) EmitSync(ctx context.Context, signature string, payload any)
 			defer wg.Done()
 			defer func() {
 				if r := recover(); r != nil {
-					eb.logger.Error("panic in event handler",
+					b.logger.Error("panic in event handler",
 						slog.Any("panic", r),
 						slog.String("signature", event.Signature))
 				}

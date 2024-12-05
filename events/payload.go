@@ -1,4 +1,4 @@
-package hop
+package events
 
 import (
 	"context"
@@ -34,7 +34,7 @@ func MustPayloadAs[T any](e Event) T {
 // HandlePayload creates an event handler that automatically converts the payload
 // to the specified type T and calls the provided typed handler function.
 // If type conversion fails, logs the error and returns without calling the handler.
-func HandlePayload[T any](handler func(context.Context, T)) EventHandler {
+func HandlePayload[T any](handler func(context.Context, T)) Handler {
 	return func(ctx context.Context, e Event) {
 		payload, err := PayloadAs[T](e)
 		if err != nil {

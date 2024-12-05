@@ -8,22 +8,11 @@ import (
 	"github.com/patrickward/hop/render/request"
 )
 
-func (resp *Response) RedirectOLD(w http.ResponseWriter, r *http.Request, url string, status int) {
-	if htmx.IsHtmxRequest(r) {
-		resp.HxRedirect(url)
-		w.WriteHeader(status)
-		return
-	}
-
-	http.Redirect(w, r, url, status)
-}
-
 // RedirectWithHTMX sends an HX-Redirect header to the client
 func (resp *Response) RedirectWithHTMX(w http.ResponseWriter, url string) {
 	w.Header().Set(htmx.HXRedirect, url)
 	w.WriteHeader(http.StatusSeeOther)
 	_, _ = w.Write([]byte("redirecting..."))
-	return
 }
 
 // Redirect sends a redirect response to the client

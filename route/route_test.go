@@ -285,9 +285,7 @@ func TestListRoutes(t *testing.T) {
 	routeMap := make(map[string][]string)
 	for _, r := range routes {
 		methods := make([]string, 0)
-		for _, method := range r.Methods {
-			methods = append(methods, method)
-		}
+		methods = append(methods, r.Methods...)
 		routeMap[r.Pattern] = methods
 	}
 

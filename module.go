@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/patrickward/hop/events"
 	"github.com/patrickward/hop/route"
 )
 
@@ -34,7 +35,7 @@ type HTTPModule interface {
 // EventModule represents a module that can handle events
 type EventModule interface {
 	Module
-	RegisterEvents(events *EventBus)
+	RegisterEvents(events *events.Bus)
 }
 
 // TemplateDataModule represents a module that can add data to the template context

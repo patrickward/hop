@@ -1,11 +1,13 @@
-package hop_test
+package events_test
 
 import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
+	"sync"
 
-	"github.com/patrickward/hop"
+	"github.com/patrickward/hop/events"
 )
 
 func ExamplePayloadAs() {
@@ -15,13 +17,13 @@ func ExamplePayloadAs() {
 		Name string
 	}
 
-	event := hop.NewEvent("user.created", UserCreated{
+	evt := events.NewEvent("user.created", UserCreated{
 		ID:   "123",
 		Name: "John Doe",
 	})
 
 	// Safe conversion with error handling
-	user, err := hop.PayloadAs[UserCreated](event)
+	user, err := events.PayloadAs[UserCreated](evt)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -38,10 +40,10 @@ func ExampleHandlePayload() {
 
 	logger := newTestLogger(os.Stderr)
 	// Create a test event bus
-	bus := hop.NewEventBus(logger) // You'd normally pass a logger here
+	bus := events.NewEventBus(logger) // You'd normally pass a logger here
 
 	// Register handler with automatic payload conversion
-	bus.On("user.created", hop.HandlePayload[UserCreated](func(ctx context.Context, user UserCreated) {
+	bus.On("user.created", events.HandlePayload[UserCreated](func(ctx context.Context, user UserCreated) {
 		fmt.Printf("Processing user: %s\n", user.Name)
 	}))
 
@@ -56,13 +58,13 @@ func ExampleHandlePayload() {
 
 func ExamplePayloadAsMap() {
 	// Create an event with a map payload
-	event := hop.NewEvent("config.updated", map[string]any{
+	evt := events.NewEvent("config.updated", map[string]any{
 		"database": "postgres",
 		"port":     5432,
 	})
 
 	// Use the convenience function for map payloads
-	config, err := hop.PayloadAsMap(event)
+	config, err := events.PayloadAsMap(evt)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -76,13 +78,13 @@ func ExamplePayloadAsMap() {
 
 func ExamplePayloadAsSlice() {
 	// Create an event with a slice payload
-	event := hop.NewEvent("users.updated", []any{
+	evt := events.NewEvent("users.updated", []any{
 		"john",
 		"jane",
 	})
 
 	// Use the convenience function for slice payloads
-	users, err := hop.PayloadAsSlice(event)
+	users, err := events.PayloadAsSlice(evt)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -100,14 +102,17 @@ func ExamplePayloadMapAs() {
 		Name string
 	}
 
+	var mu sync.Mutex
+	var results []string
+
 	// Create an event with a map payload
-	event := hop.NewEvent("regions.updated", map[string]any{
+	evt := events.NewEvent("regions.updated", map[string]any{
 		"us-east": Region{Code: "USE", Name: "US East"},
 		"us-west": Region{Code: "USW", Name: "US West"},
 	})
 
 	// Convert the payload to a map of Regions
-	regions, err := hop.PayloadMapAs[Region](event)
+	regions, err := events.PayloadMapAs[Region](evt)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -115,8 +120,17 @@ func ExamplePayloadMapAs() {
 
 	// Process the typed regions
 	for key, region := range regions {
-		fmt.Printf("Region %s: %s (%s)\n", key, region.Name, region.Code)
+		mu.Lock()
+		results = append(results, fmt.Sprintf("Region %s: %s (%s)", key, region.Name, region.Code))
+		mu.Unlock()
 	}
+
+	// Sort and print results for consistent output
+	sort.Strings(results)
+	for _, result := range results {
+		fmt.Println(result)
+	}
+
 	// Output:
 	// Region us-east: US East (USE)
 	// Region us-west: US West (USW)
@@ -130,13 +144,13 @@ func ExamplePayloadSliceAs() {
 	}
 
 	// Create an event with a slice payload
-	event := hop.NewEvent("users.imported", []any{
+	evt := events.NewEvent("users.imported", []any{
 		User{ID: "1", Name: "Alice"},
 		User{ID: "2", Name: "Bob"},
 	})
 
 	// Convert the payload to a slice of Users
-	users, err := hop.PayloadSliceAs[User](event)
+	users, err := events.PayloadSliceAs[User](evt)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return

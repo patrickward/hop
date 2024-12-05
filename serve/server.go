@@ -24,17 +24,14 @@ type DataFunc func(r *http.Request, data *map[string]any)
 type Server struct {
 	config     *conf.Config
 	onShutdown func(context.Context) error
-	dataFunc   DataFunc
 	httpServer *http.Server
 	logger     *slog.Logger
-	//router      *http.ServeMux
-	router *route.Mux
-	wg     *sync.WaitGroup
+	router     *route.Mux
+	wg         *sync.WaitGroup
 }
 
 // NewServer creates a new server with the given configuration and logger.
 func NewServer(config *conf.Config, logger *slog.Logger, router *route.Mux) *Server {
-	//router := http.NewServeMux()
 	if router == nil {
 		router = route.New()
 	}

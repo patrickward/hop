@@ -16,6 +16,7 @@ import (
 	"github.com/justinas/nosurf"
 
 	"github.com/patrickward/hop/conf"
+	"github.com/patrickward/hop/events"
 	"github.com/patrickward/hop/log"
 	"github.com/patrickward/hop/render"
 	"github.com/patrickward/hop/render/htmx"
@@ -48,7 +49,7 @@ type App struct {
 	router         *route.Mux              // router instance
 	tm             *render.TemplateManager // template manager instance
 	config         *conf.Config            // configuration
-	events         *EventBus               // event bus instance
+	events         *events.Bus             // event bus instance
 	session        *scs.SessionManager     // session manager instance
 	modules        map[string]Module       // map of modules by ID
 	startOrder     []string                // order in which modules should be started / stopped in reverse
@@ -63,7 +64,7 @@ func New(cfg AppConfig) (*App, error) {
 	logger := createLogger(&cfg)
 
 	// Create events
-	eventBus := NewEventBus(logger)
+	eventBus := events.NewEventBus(logger)
 
 	// Create template manager
 	var tm *render.TemplateManager
@@ -219,7 +220,7 @@ func (a *App) Stop(ctx context.Context) error {
 func (a *App) Logger() *slog.Logger { return a.logger }
 
 // Events returns the event bus for the app
-func (a *App) Events() *EventBus { return a.events }
+func (a *App) Events() *events.Bus { return a.events }
 
 // Router returns the router instance for the app
 func (a *App) Router() *route.Mux { return a.router }
@@ -384,16 +385,14 @@ func createSessionStore(cfg *AppConfig) *scs.SessionManager {
 }
 
 func sameSiteFromString(key string) http.SameSite {
-	sameSite := http.SameSiteDefaultMode
 	switch key {
 	case "lax":
-		sameSite = http.SameSiteLaxMode
+		return http.SameSiteLaxMode
 	case "strict":
-		sameSite = http.SameSiteStrictMode
+		return http.SameSiteStrictMode
 	case "none":
-		sameSite = http.SameSiteNoneMode
+		return http.SameSiteNoneMode
 	default:
-		sameSite = http.SameSiteDefaultMode
+		return http.SameSiteDefaultMode
 	}
-	return sameSite
 }

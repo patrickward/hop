@@ -134,9 +134,10 @@ func BenchmarkMux(b *testing.B) {
 			name: "grouped_routes",
 			setup: func() (*route.Mux, *http.Request) {
 				mux := route.New()
-				api := mux.Group("/api")
-				v1 := api.Group("/v1")
-				v1.Get("/users", noopHandler)
+				mux.PrefixGroup("/api", func(group *route.Group) {
+					group.Get("/v1/users", noopHandler)
+				})
+
 				return mux, httptest.NewRequest(http.MethodGet, "/api/v1/users", nil)
 			},
 		},
@@ -145,9 +146,9 @@ func BenchmarkMux(b *testing.B) {
 			setup: func() (*route.Mux, *http.Request) {
 				mux := route.New()
 				mux.Use(logMiddleware) // global middleware
-				api := mux.Group("/api", logMiddleware)
-				v1 := api.Group("/v1", logMiddleware)
-				v1.Get("/users", noopHandler)
+				mux.PrefixGroup("/api", func(group *route.Group) {
+					group.Get("/v1/users", noopHandler)
+				})
 				return mux, httptest.NewRequest(http.MethodGet, "/api/v1/users", nil)
 			},
 		},
@@ -239,9 +240,15 @@ func BenchmarkRouteRegistration(b *testing.B) {
 			name: "grouped_route",
 			operation: func() {
 				mux := route.New()
-				api := mux.Group("/api")
-				v1 := api.Group("/v1")
-				v1.Get("/users", noopHandler)
+				//api := mux.PrefixGroup("/api")
+				//v1 := api.PrefixGroup("/v1")
+				//v1.Get("/users", noopHandler)
+
+				mux.PrefixGroup("/api", func(group *route.Group) {
+					group.PrefixGroup("/v1", func(group *route.Group) {
+						group.Get("/users", noopHandler)
+					})
+				})
 			},
 		},
 		{

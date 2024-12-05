@@ -15,7 +15,7 @@ type Group struct {
 }
 
 // HandleFunc registers a handler without method restrictions
-func (g *Group) HandleFunc(pattern string, handler http.HandlerFunc) {
+func (g *Group) HandleFunc(pattern string, handler http.Handler) {
 	g.handle(pattern, handler)
 }
 
@@ -25,37 +25,42 @@ func (g *Group) Use(middleware ...Middleware) {
 }
 
 // Get registers a GET handler within the group
-func (g *Group) Get(pattern string, handler http.HandlerFunc) {
+func (g *Group) Get(pattern string, handler http.Handler) {
+	g.handle("GET "+pattern, handler)
+}
+
+// GetHandler registers a GET handler within the group with a handler that returns an error
+func (g *Group) GetHandler(pattern string, handler http.Handler) {
 	g.handle("GET "+pattern, handler)
 }
 
 // Post registers a POST handler within the group
-func (g *Group) Post(pattern string, handler http.HandlerFunc) {
+func (g *Group) Post(pattern string, handler http.Handler) {
 	g.handle("POST "+pattern, handler)
 }
 
 // Put registers a PUT handler within the group
-func (g *Group) Put(pattern string, handler http.HandlerFunc) {
+func (g *Group) Put(pattern string, handler http.Handler) {
 	g.handle("PUT "+pattern, handler)
 }
 
 // Delete registers a DELETE handler within the group
-func (g *Group) Delete(pattern string, handler http.HandlerFunc) {
+func (g *Group) Delete(pattern string, handler http.Handler) {
 	g.handle("DELETE "+pattern, handler)
 }
 
 // Patch registers a PATCH handler within the group
-func (g *Group) Patch(pattern string, handler http.HandlerFunc) {
+func (g *Group) Patch(pattern string, handler http.Handler) {
 	g.handle("PATCH "+pattern, handler)
 }
 
 // Options registers an OPTIONS handler within the group
-func (g *Group) Options(pattern string, handler http.HandlerFunc) {
+func (g *Group) Options(pattern string, handler http.Handler) {
 	g.handle("OPTIONS "+pattern, handler)
 }
 
 // Head registers a HEAD handler within the group
-func (g *Group) Head(pattern string, handler http.HandlerFunc) {
+func (g *Group) Head(pattern string, handler http.Handler) {
 	g.handle("HEAD "+pattern, handler)
 }
 
@@ -71,7 +76,7 @@ func (g *Group) getMiddlewareChain() Chain {
 }
 
 // handle registers a handler with the group's prefix and middleware chain
-func (g *Group) handle(pattern string, handler http.HandlerFunc) {
+func (g *Group) handle(pattern string, handler http.Handler) {
 	// Extract method if present
 	var method string
 	if len(pattern) > 0 && pattern[0] != '/' {
@@ -96,18 +101,29 @@ func (g *Group) handle(pattern string, handler http.HandlerFunc) {
 	chain := g.getMiddlewareChain()
 
 	// Apply all middleware from outside in
-	h := chain.ThenFunc(handler)
+	h := chain.Then(handler)
 
 	// Register with parent mux
 	g.mux.ServeMux.Handle(fullPattern, h)
 }
 
-// Group creates a nested group
-func (g *Group) Group(prefix string, middleware ...Middleware) *Group {
-	return &Group{
+// PrefixGroup creates a nested group with a common prefix and applies the provided group function
+func (g *Group) PrefixGroup(prefix string, group GroupFunc) *Group {
+	subGroup := &Group{
 		mux:        g.mux,
 		prefix:     path.Join(g.prefix, prefix),
-		middleware: NewChain(middleware...),
+		middleware: NewChain(),
 		parent:     g, // Set this group as parent
 	}
+
+	if group != nil {
+		group(subGroup)
+	}
+
+	return subGroup
+}
+
+// Group creates a nested group at the current prefix level and applies the provided group function
+func (g *Group) Group(group GroupFunc) *Group {
+	return g.PrefixGroup("", group)
 }

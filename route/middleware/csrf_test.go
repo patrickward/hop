@@ -1,12 +1,9 @@
 package middleware_test
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 
 	"github.com/patrickward/hop/route/middleware"
 )
@@ -22,12 +19,30 @@ func TestPreventCSRF(t *testing.T) {
 		HttpOnly: true,
 	})
 
-	middleware.PreventCSRF(fakeHandler()).ServeHTTP(w, r)
-	assert.Equal(t, "fakeHandler", w.Body.String())
-}
-
-func fakeHandler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "fakeHandler")
+	handler := middleware.PreventCSRF(middleware.PreventCSRFOptions{
+		HTTPOnly: true,
+		Path:     "/",
+		MaxAge:   86400,
+		SameSite: "lax",
+		Secure:   false,
 	})
+
+	handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})).ServeHTTP(w, r)
+
+	// CSRF cookie should be set
+	cookie := w.Result().Cookies()[0]
+	if cookie.Name != "csrf_token" {
+		t.Errorf("Cookie name is not 'csrf'. Name is %s.", cookie.Name)
+	}
+	if cookie.HttpOnly != true {
+		t.Errorf("Cookie HttpOnly is not true")
+	}
+	if cookie.Path != "/" {
+		t.Errorf("Cookie Path is not '/'")
+	}
+	if cookie.MaxAge != 86400 {
+		t.Errorf("Cookie MaxAge is not 86400")
+	}
 }

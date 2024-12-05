@@ -10,13 +10,16 @@ import (
 	"strings"
 )
 
+// GroupFunc is a function that configures a route group
+type GroupFunc func(g *Group)
+
 // Mux extends http.ServeMux with additional routing features.
 // It also provides a middleware chain for adding middleware to routes.
 type Mux struct {
 	*http.ServeMux
 	middleware      Chain
 	registry        *routeRegistry
-	notFoundHandler http.HandlerFunc
+	notFoundHandler http.Handler
 }
 
 // New creates a new Mux instance
@@ -38,28 +41,39 @@ func (m *Mux) Use(middleware ...Middleware) {
 	m.middleware = m.middleware.Append(middleware...)
 }
 
-// Group creates a new route group with the given prefix and middleware
-func (m *Mux) Group(prefix string, middleware ...Middleware) *Group {
-	return &Group{
+// PrefixGroup creates a new route group with the given prefix and applies the given group configuration function.
+func (m *Mux) PrefixGroup(prefix string, group GroupFunc) *Group {
+	subGroup := &Group{
 		mux:        m,
 		prefix:     prefix,
-		middleware: NewChain(middleware...),
+		middleware: m.middleware,
 		parent:     nil, // Root group has no parent
 	}
+
+	if group != nil {
+		group(subGroup)
+	}
+
+	return subGroup
+}
+
+// Group creates a new route group with the given configuration function.
+func (m *Mux) Group(group GroupFunc) *Group {
+	return m.PrefixGroup("", group)
 }
 
 // Home registers a handler for the root path
-func (m *Mux) Home(handler http.HandlerFunc) {
-	m.HandleFunc("/{$}", handler)
+func (m *Mux) Home(handler http.Handler) {
+	m.handle("/{$}", handler)
 }
 
 // NotFound registers a handler for when no routes match
-func (m *Mux) NotFound(handler http.HandlerFunc) {
+func (m *Mux) NotFound(handler http.Handler) {
 	m.notFoundHandler = handler
 }
 
 // handle registers a handler with middleware
-func (m *Mux) handle(pattern string, handler http.HandlerFunc) {
+func (m *Mux) handle(pattern string, handler http.Handler) {
 	// Extract method if present
 	var method string
 	if len(pattern) > 0 && pattern[0] != '/' {
@@ -79,7 +93,7 @@ func (m *Mux) handle(pattern string, handler http.HandlerFunc) {
 	}
 
 	// Apply the middleware chain
-	h := m.middleware.ThenFunc(handler)
+	h := m.middleware.Then(handler)
 
 	// Register the handler
 	m.ServeMux.Handle(pattern, h)
@@ -88,7 +102,7 @@ func (m *Mux) handle(pattern string, handler http.HandlerFunc) {
 func (m *Mux) handleNotFound(w http.ResponseWriter, r *http.Request) {
 	if m.notFoundHandler != nil {
 		// Wrap the not found handler with the middleware chain
-		h := m.middleware.ThenFunc(m.notFoundHandler)
+		h := m.middleware.Then(m.notFoundHandler)
 		h.ServeHTTP(w, r)
 		return
 	}
@@ -113,42 +127,42 @@ func (m *Mux) handleOptions(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleFunc registers a handler without method restrictions
-func (m *Mux) HandleFunc(pattern string, handler http.HandlerFunc) {
+func (m *Mux) HandleFunc(pattern string, handler http.Handler) {
 	m.handle(pattern, handler)
 }
 
 // Get registers a GET handler
-func (m *Mux) Get(pattern string, handler http.HandlerFunc) {
+func (m *Mux) Get(pattern string, handler http.Handler) {
 	m.handle("GET "+pattern, handler)
 }
 
 // Post registers a POST handler
-func (m *Mux) Post(pattern string, handler http.HandlerFunc) {
+func (m *Mux) Post(pattern string, handler http.Handler) {
 	m.handle("POST "+pattern, handler)
 }
 
 // Put registers a PUT handler
-func (m *Mux) Put(pattern string, handler http.HandlerFunc) {
+func (m *Mux) Put(pattern string, handler http.Handler) {
 	m.handle("PUT "+pattern, handler)
 }
 
 // Delete registers a DELETE handler
-func (m *Mux) Delete(pattern string, handler http.HandlerFunc) {
+func (m *Mux) Delete(pattern string, handler http.Handler) {
 	m.handle("DELETE "+pattern, handler)
 }
 
 // Patch registers a PATCH handler
-func (m *Mux) Patch(pattern string, handler http.HandlerFunc) {
+func (m *Mux) Patch(pattern string, handler http.Handler) {
 	m.handle("PATCH "+pattern, handler)
 }
 
 // Options registers an OPTIONS handler
-func (m *Mux) Options(pattern string, handler http.HandlerFunc) {
+func (m *Mux) Options(pattern string, handler http.Handler) {
 	m.handle("OPTIONS "+pattern, handler)
 }
 
 // Head registers a HEAD handler
-func (m *Mux) Head(pattern string, handler http.HandlerFunc) {
+func (m *Mux) Head(pattern string, handler http.Handler) {
 	m.handle("HEAD "+pattern, handler)
 }
 

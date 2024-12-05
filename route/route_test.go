@@ -14,6 +14,10 @@ import (
 	"github.com/patrickward/hop/route"
 )
 
+func emptyHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+}
+
 func TestMux(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -26,8 +30,8 @@ func TestMux(t *testing.T) {
 		{
 			name: "OPTIONS request for registered path",
 			setupRoutes: func(m *route.Mux) {
-				m.Get("/api/users", func(w http.ResponseWriter, r *http.Request) {})
-				m.Post("/api/users", func(w http.ResponseWriter, r *http.Request) {})
+				m.Get("/api/users", emptyHandler())
+				m.Post("/api/users", emptyHandler())
 			},
 			request:        httptest.NewRequest(http.MethodOptions, "/api/users", nil),
 			expectedStatus: http.StatusNoContent,
@@ -42,10 +46,10 @@ func TestMux(t *testing.T) {
 		{
 			name: "HEAD request for GET route",
 			setupRoutes: func(m *route.Mux) {
-				m.Get("/api/users", func(w http.ResponseWriter, r *http.Request) {
+				m.Get("/api/users", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					_, err := w.Write([]byte("hello"))
 					require.NoError(t, err)
-				})
+				}))
 			},
 			request:        httptest.NewRequest(http.MethodHead, "/api/users", nil),
 			expectedStatus: http.StatusOK,
@@ -54,10 +58,10 @@ func TestMux(t *testing.T) {
 		{
 			name: "Multiple methods on same path",
 			setupRoutes: func(m *route.Mux) {
-				m.Get("/api/resource", func(w http.ResponseWriter, r *http.Request) {})
-				m.Post("/api/resource", func(w http.ResponseWriter, r *http.Request) {})
-				m.Put("/api/resource", func(w http.ResponseWriter, r *http.Request) {})
-				m.Delete("/api/resource", func(w http.ResponseWriter, r *http.Request) {})
+				m.Get("/api/resource", emptyHandler())
+				m.Post("/api/resource", emptyHandler())
+				m.Put("/api/resource", emptyHandler())
+				m.Delete("/api/resource", emptyHandler())
 			},
 			request:        httptest.NewRequest(http.MethodOptions, "/api/resource", nil),
 			expectedStatus: http.StatusNoContent,
@@ -72,10 +76,10 @@ func TestMux(t *testing.T) {
 						next.ServeHTTP(w, r)
 					})
 				})
-				m.Get("/api/test", func(w http.ResponseWriter, r *http.Request) {
+				m.Get("/api/test", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					_, err := w.Write([]byte("test"))
 					require.NoError(t, err)
-				})
+				}))
 			},
 			request:        httptest.NewRequest(http.MethodGet, "/api/test", nil),
 			expectedStatus: http.StatusOK,
@@ -119,21 +123,24 @@ func TestGroup(t *testing.T) {
 		{
 			name: "Nested groups with middleware",
 			setupRoutes: func(m *route.Mux) {
-				api := m.Group("/api", func(next http.Handler) http.Handler {
-					return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-						w.Header().Set("X-API-Version", "1.0")
-						next.ServeHTTP(w, r)
+				m.PrefixGroup("/api", func(group *route.Group) {
+					group.Use(func(next http.Handler) http.Handler {
+						return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+							w.Header().Set("X-API-Version", "1.0")
+							next.ServeHTTP(w, r)
+						})
+					})
+
+					group.PrefixGroup("/v1", func(group *route.Group) {
+						group.PrefixGroup("/users", func(group *route.Group) {
+							group.Get("", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+								_, err := w.Write([]byte("users"))
+								require.NoError(t, err)
+							}))
+							group.Post("", emptyHandler())
+						})
 					})
 				})
-
-				v1 := api.Group("/v1")
-				users := v1.Group("/users")
-
-				users.Get("", func(w http.ResponseWriter, r *http.Request) {
-					_, err := w.Write([]byte("users"))
-					require.NoError(t, err)
-				})
-				users.Post("", func(w http.ResponseWriter, r *http.Request) {})
 			},
 			request:        httptest.NewRequest(http.MethodGet, "/api/v1/users", nil),
 			expectedStatus: http.StatusOK,
@@ -145,12 +152,14 @@ func TestGroup(t *testing.T) {
 		{
 			name: "OPTIONS for nested group route",
 			setupRoutes: func(m *route.Mux) {
-				api := m.Group("/api")
-				v1 := api.Group("/v1")
-				users := v1.Group("/users")
-
-				users.Get("", func(w http.ResponseWriter, r *http.Request) {})
-				users.Post("", func(w http.ResponseWriter, r *http.Request) {})
+				m.PrefixGroup("/api", func(group *route.Group) {
+					group.PrefixGroup("/v1", func(group *route.Group) {
+						group.PrefixGroup("/users", func(group *route.Group) {
+							group.Get("", emptyHandler())
+							group.Post("", emptyHandler())
+						})
+					})
+				})
 			},
 			request:        httptest.NewRequest(http.MethodOptions, "/api/v1/users", nil),
 			expectedStatus: http.StatusNoContent,
@@ -159,16 +168,16 @@ func TestGroup(t *testing.T) {
 		{
 			name: "Multiple nested groups with different methods",
 			setupRoutes: func(m *route.Mux) {
-				api := m.Group("/api")
-				v1 := api.Group("/v1")
-
-				// Register handlers at different levels
-				api.Get("/health", func(w http.ResponseWriter, r *http.Request) {})
-				v1.Get("/status", func(w http.ResponseWriter, r *http.Request) {})
-
-				users := v1.Group("/users")
-				users.Get("", func(w http.ResponseWriter, r *http.Request) {})
-				users.Post("", func(w http.ResponseWriter, r *http.Request) {})
+				m.PrefixGroup("/api", func(group *route.Group) {
+					group.Get("/health", emptyHandler())
+					group.PrefixGroup("/v1", func(group *route.Group) {
+						group.Get("/status", emptyHandler())
+						group.PrefixGroup("/users", func(group *route.Group) {
+							group.Get("", emptyHandler())
+							group.Post("", emptyHandler())
+						})
+					})
+				})
 			},
 			request:        httptest.NewRequest(http.MethodOptions, "/api/v1/users", nil),
 			expectedStatus: http.StatusNoContent,
@@ -216,31 +225,33 @@ func TestGroupWithParentMiddleware(t *testing.T) {
 	})
 
 	// Add a group with its own middleware
-	api := mux.Group("/api", func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("X-API", "1.0")
-			next.ServeHTTP(w, r)
+	api := mux.PrefixGroup("/api", func(group *route.Group) {
+		group.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("X-API", "1.0")
+				next.ServeHTTP(w, r)
+			})
 		})
-	})
-
-	// Add a handler to the group
-	api.Get("/users", func(w http.ResponseWriter, r *http.Request) {
-		_, err := w.Write([]byte("users"))
-		require.NoError(t, err)
+		group.Get("/users", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, err := w.Write([]byte("users"))
+			require.NoError(t, err)
+		}))
 	})
 
 	// Add a nested group with its own middleware
-	v1 := api.Group("/v1", func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("X-V1", "1.0")
-			next.ServeHTTP(w, r)
+	api.PrefixGroup("/v1", func(group *route.Group) {
+		group.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("X-V1", "1.0")
+				next.ServeHTTP(w, r)
+			})
 		})
-	})
 
-	// Add a handler to the nested group
-	v1.Get("/users", func(w http.ResponseWriter, r *http.Request) {
-		_, err := w.Write([]byte("users v1"))
-		require.NoError(t, err)
+		// Add a handler to the nested group
+		group.Get("/users", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, err := w.Write([]byte("users v1"))
+			require.NoError(t, err)
+		}))
 	})
 
 	// Make a request to the handler
@@ -270,14 +281,16 @@ func TestListRoutes(t *testing.T) {
 	mux := route.New()
 
 	// Setup some routes at different levels
-	api := mux.Group("/api")
-	v1 := api.Group("/v1")
-	users := v1.Group("/users")
-
-	api.Get("/health", func(w http.ResponseWriter, r *http.Request) {})
-	v1.Get("/status", func(w http.ResponseWriter, r *http.Request) {})
-	users.Get("", func(w http.ResponseWriter, r *http.Request) {})
-	users.Post("", func(w http.ResponseWriter, r *http.Request) {})
+	mux.PrefixGroup("/api", func(group *route.Group) {
+		group.Get("/health", emptyHandler())
+		group.PrefixGroup("/v1", func(group *route.Group) {
+			group.Get("/status", emptyHandler())
+			group.PrefixGroup("/users", func(group *route.Group) {
+				group.Get("", emptyHandler())
+				group.Post("", emptyHandler())
+			})
+		})
+	})
 
 	routes := mux.ListRoutes()
 
@@ -309,14 +322,16 @@ func TestDumpRoutes(t *testing.T) {
 	mux := route.New()
 
 	// Setup some routes at different levels
-	api := mux.Group("/api")
-	v1 := api.Group("/v1")
-	users := v1.Group("/users")
-
-	api.Get("/health", func(w http.ResponseWriter, r *http.Request) {})
-	v1.Get("/status", func(w http.ResponseWriter, r *http.Request) {})
-	users.Get("", func(w http.ResponseWriter, r *http.Request) {})
-	users.Post("", func(w http.ResponseWriter, r *http.Request) {})
+	mux.PrefixGroup("/api", func(group *route.Group) {
+		group.Get("/health", emptyHandler())
+		group.PrefixGroup("/v1", func(group *route.Group) {
+			group.Get("/status", emptyHandler())
+			group.PrefixGroup("/users", func(group *route.Group) {
+				group.Get("", emptyHandler())
+				group.Post("", emptyHandler())
+			})
+		})
+	})
 
 	routesJSON, err := mux.DumpRoutes()
 	require.NoError(t, err)

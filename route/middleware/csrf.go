@@ -4,19 +4,34 @@ import (
 	"net/http"
 
 	"github.com/justinas/nosurf"
+
+	"github.com/patrickward/hop/route"
+	"github.com/patrickward/hop/utils"
 )
 
+// PreventCSRFOptions provides options for PreventCSRF
+type PreventCSRFOptions struct {
+	HTTPOnly bool
+	Path     string
+	MaxAge   int
+	SameSite string
+	Secure   bool
+}
+
 // PreventCSRF prevents CSRF attacks by setting a CSRF cookie.
-func PreventCSRF(next http.Handler) http.Handler {
-	csrfHandler := nosurf.New(next)
+func PreventCSRF(opts PreventCSRFOptions) route.Middleware {
+	return func(next http.Handler) http.Handler {
+		csrfHandler := nosurf.New(next)
 
-	csrfHandler.SetBaseCookie(http.Cookie{
-		HttpOnly: true,
-		Path:     "/",
-		MaxAge:   86400,
-		SameSite: http.SameSiteLaxMode,
-		Secure:   true,
-	})
+		sameSite := utils.SameSiteFromString(opts.SameSite)
+		csrfHandler.SetBaseCookie(http.Cookie{
+			HttpOnly: opts.HTTPOnly,
+			Path:     opts.Path,
+			MaxAge:   opts.MaxAge,
+			SameSite: sameSite,
+			Secure:   opts.Secure,
+		})
 
-	return csrfHandler
+		return csrfHandler
+	}
 }

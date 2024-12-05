@@ -21,6 +21,7 @@ type Config struct {
 	Events      EventsConfig      `json:"events"`
 	Maintenance MaintenanceConfig `json:"maintenance"`
 	Session     SessionConfig     `json:"session"`
+	Csrf        CsrfConfig        `json:"csrf"`
 	Server      ServerConfig      `json:"server"`
 	Database    DatabaseConfig    `json:"database"`
 	SMTP        SMPTConfig        `json:"smtp"`
@@ -49,6 +50,14 @@ type EventsConfig struct {
 type MaintenanceConfig struct {
 	Enabled bool   `json:"enabled" env:"MAINTENANCE_ENABLED" default:"false"`
 	Message string `json:"message" env:"MAINTENANCE_MESSAGE" default:""`
+}
+
+type CsrfConfig struct {
+	HTTPOnly bool   `json:"http_only" env:"CSRF_HTTP_ONLY" default:"true"`
+	Path     string `json:"path" env:"CSRF_PATH" default:"/"`
+	MaxAge   int    `json:"max_age" env:"CSRF_MAX_AGE" default:"86400"`
+	SameSite string `json:"same_site" env:"CSRF_SAME_SITE" default:"Lax"`
+	Secure   bool   `json:"secure" env:"CSRF_SECURE" default:"true"`
 }
 
 type SessionConfig struct {

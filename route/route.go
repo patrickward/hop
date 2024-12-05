@@ -2,7 +2,10 @@ package route
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/url"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -191,34 +194,188 @@ func (m *Mux) DumpRoutes() (string, error) {
 // Static file serving
 // -----------------------------------------------------------------------------
 
-// ServeStatic registers a file server for a directory of static files.
-// The provided pattern should use Go 1.22's enhanced patterns, e.g. "/static/{file...}"
-// This bypasses the global middleware chain for better performance.
+// ServeDirectory serves all files under a filesystem directory, matching the URL paths directly.
+// The provided pattern must use Go 1.22's enhanced patterns, e.g. "/static/{file...}"
 //
-// Example:
+// Requirements:
 //
-// mux.ServeStatic("/static/{file...}", http.Dir("static"))
-// This will serve files from the "static" directory under the "/static/" URL path.
-func (m *Mux) ServeStatic(pattern string, fs http.FileSystem) {
+//   - pattern must contain the wildcard pattern {file...} (e.g. "/static/{file...}")
+//   - fs cannot be nil
+//
+// Returns an error if the pattern is invalid or missing the {file...} suffix.
+func (m *Mux) ServeDirectory(pattern string, fs http.FileSystem) error {
+	if fs == nil {
+		return fmt.Errorf("filesystem cannot be nil")
+	}
+
+	if !strings.Contains(pattern, "{file...}") {
+		return fmt.Errorf("pattern must contain {file...} to match file paths")
+	}
+
 	fileServer := http.FileServer(fs)
-	// Register directly with ServeMux to bypass middleware
 	m.ServeMux.Handle(pattern, fileServer)
+	return nil
+}
+
+// ServeDirectoryWithPrefix serves files that exist under fsPrefix in the filesystem
+// at URLs matching the provided pattern. It requires Go 1.22's enhanced patterns to indicate file paths.
+//
+// Requirements:
+//   - pattern must contain the wildcard pattern {file...} (e.g. "/foo/{file...}")
+//   - fsPrefix must start with "/" and not end with "/"
+//   - fs cannot be nil
+//
+// Example: ServeDirectoryWithPrefix("/foo/{file...}", "/uploads", fs)
+// will serve files that exist at "/uploads/image.jpg" in the filesystem
+// when requested at "/foo/image.jpg"
+//
+// Returns an error if any of the requirements are not met.
+func (m *Mux) ServeDirectoryWithPrefix(pattern string, fsPrefix string, fs http.FileSystem) error {
+	// Validate inputs
+	if fs == nil {
+		return fmt.Errorf("filesystem cannot be nil")
+	}
+
+	if !strings.Contains(pattern, "{file...}") {
+		return fmt.Errorf("pattern must contain {file...} to match file paths")
+	}
+
+	if !strings.HasPrefix(fsPrefix, "/") {
+		return fmt.Errorf("fsPrefix must start with /")
+	}
+
+	// Get the URL prefix from the pattern (everything before {file...})
+	patternParts := strings.Split(pattern, "{file...}")
+	if len(patternParts) != 2 {
+		return fmt.Errorf("invalid pattern format")
+	}
+	urlPrefix := patternParts[0]
+
+	// Create the FileServer with prefix stripping
+	fileServer := http.StripPrefix(fsPrefix, http.FileServer(fs))
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Strip the URL prefix to get the file path
+		path := strings.TrimPrefix(r.URL.Path, urlPrefix)
+
+		// Create new request with path under fsPrefix
+		r2 := new(http.Request)
+		*r2 = *r
+		r2.URL = new(url.URL)
+		*r2.URL = *r.URL
+		r2.URL.Path = filepath.Join(fsPrefix, path)
+
+		// Serve the file
+		fileServer.ServeHTTP(w, r2)
+	})
+
+	m.ServeMux.Handle(pattern, handler)
+	return nil
+}
+
+// FileMapping represents a mapping between a URL path and a filesystem path
+type FileMapping struct {
+	URLPath  string // The URL path where the file will be served
+	FilePath string // The path to the file within the filesystem
 }
 
 // ServeFiles registers multiple individual files from a filesystem at their respective paths.
-// This is useful for serving files like favicons, manifests, and other root-level files.
-// All files will be served from the same filesystem but at different paths.
+// Files can be specified using their full path within the filesystem.
+// If urlPrefix is provided (e.g., "/assets"), files will be served under that URL path.
+// If urlPrefix is empty (""), files will be served at the root level.
+// The paths argument can be a mix of strings and FileMapping structs.
 //
-// Example:
+// Examples:
 //
-// mux.ServeFiles(http.Dir("root"), "/favicon.ico", "/site.webmanifest", "/robots.txt")
-// This will serve the "favicon.ico", "site.webmanifest", and "robots.txt" files from the "root" directory.
-func (m *Mux) ServeFiles(fs http.FileSystem, paths ...string) {
-	fileServer := http.FileServer(fs)
-	for _, path := range paths {
-		// Register each path directly with ServeMux
-		m.ServeMux.Handle(path, fileServer)
+// 1. Serve files at root level
+// router.ServeFiles(http.FS(root.Files), "",  // empty prefix serves at root
+//
+//	"/foo/bar.png",      // Serves at /bar.png
+//	"/icons/main.png",   // Serves at /main.png
+//
+// )
+//
+// 2. Serve files under a URL prefix
+// router.ServeFiles(http.FS(root.Files), "/assets",
+//
+//	"/foo/bar.png",      // Serves at /assets/bar.png
+//	"/icons/main.png",   // Serves at /assets/main.png
+//
+// )
+//
+// 3. Mix and match with custom URL paths
+// router.ServeFiles(http.FS(root.Files), "/special",
+//
+//	"/foo/bar.png",      // Serves at /special/bar.png
+//	FileMapping{         // Custom URL path still respects prefix
+//		URLPath: "icons/custom.png",
+//		FilePath: "/icons/main.png",
+//	},                   // Serves at /special/icons/custom.png
+//
+// )
+//
+// 4. Use mappings at root level
+// router.ServeFiles(http.FS(root.Files), "",
+//
+//	FileMapping{
+//		URLPath: "/site-icon.png",
+//		FilePath: "/icons/main.png",
+//	},
+//
+// )
+func (m *Mux) ServeFiles(fs http.FileSystem, urlPrefix string, paths ...any) error {
+	for _, p := range paths {
+		var urlPath, filePath string
+
+		switch v := p.(type) {
+		case string:
+			// If just a string is provided, construct URL path from prefix and filename
+			filePath = v
+			fileName := filepath.Base(v)
+			if urlPrefix == "" {
+				urlPath = "/" + fileName
+			} else {
+				urlPath = filepath.Join(urlPrefix, fileName)
+			}
+		case FileMapping:
+			// If a FileMapping is provided, respect the specified URL path but still apply prefix
+			filePath = v.FilePath
+			if urlPrefix == "" {
+				urlPath = v.URLPath
+			} else {
+				urlPath = filepath.Join(urlPrefix, v.URLPath)
+			}
+		default:
+			return fmt.Errorf("invalid path type: %T", p)
+		}
+
+		// Create a closure to capture the file path
+		handler := func(fPath string) http.HandlerFunc {
+			return func(w http.ResponseWriter, r *http.Request) {
+				f, err := fs.Open(fPath)
+				if err != nil {
+					http.NotFound(w, r)
+					return
+				}
+				defer func(f http.File) {
+					_ = f.Close()
+				}(f)
+
+				stat, err := f.Stat()
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+
+				http.ServeContent(w, r, filepath.Base(fPath), stat.ModTime(), f)
+			}
+		}(filePath)
+
+		// Register the handler directly with ServeMux
+		m.ServeMux.HandleFunc(urlPath, handler)
 	}
+
+	return nil
 }
 
 // ServeFileFrom serves a single file from a filesystem at a specific URL path.
@@ -247,16 +404,4 @@ func (m *Mux) ServeFileFrom(urlPath string, fs http.FileSystem, filePath string)
 
 		http.ServeContent(w, r, filePath, stat.ModTime(), f)
 	})
-}
-
-// ServePrefix serves files under a URL prefix, stripping the prefix before looking up the file.
-// This is useful for serving files from a subdirectory at a different URL path.
-//
-// Example:
-//
-// mux.ServePrefix("/static/", "/assets/", http.Dir("static"))
-// This will serve files from the "static" directory under the "/assets/" URL path.
-func (m *Mux) ServePrefix(pattern string, prefix string, fs http.FileSystem) {
-	handler := http.StripPrefix(prefix, http.FileServer(fs))
-	m.ServeMux.Handle(pattern, handler)
 }

@@ -43,19 +43,20 @@ type AppConfig struct {
 
 // App holds core components that most services need
 type App struct {
-	firstError     error                   // first error that occurred during initialization
-	logger         *slog.Logger            // logger instance
-	server         *serve.Server           // server instance
-	router         *route.Mux              // router instance
-	tm             *render.TemplateManager // template manager instance
-	config         *conf.Config            // configuration
-	events         *events.Bus             // event bus instance
-	session        *scs.SessionManager     // session manager instance
-	modules        map[string]Module       // map of modules by ID
-	startOrder     []string                // order in which modules should be started / stopped in reverse
-	dataModules    []TemplateDataModule    // modules that provide template data
-	mu             sync.RWMutex            // mutex for modules map
-	onTemplateData OnTemplateDataFunc      // callback function for populating template data
+	firstError     error                       // first error that occurred during initialization
+	logger         *slog.Logger                // logger instance
+	server         *serve.Server               // server instance
+	router         *route.Mux                  // router instance
+	tm             *render.TemplateManager     // template manager instance
+	config         *conf.Config                // configuration
+	events         *events.Bus                 // event bus instance
+	session        *scs.SessionManager         // session manager instance
+	modules        map[string]Module           // map of modules by ID
+	startOrder     []string                    // order in which modules should be started / stopped in reverse
+	dataModules    []TemplateDataModule        // modules that provide template data
+	mu             sync.RWMutex                // mutex for modules map
+	onTemplateData OnTemplateDataFunc          // callback function for populating template data
+	onShutdown     func(context.Context) error // callback function for shutting down the app. This is called when the server is shutting down.
 }
 
 // New creates a new application with core components
@@ -176,7 +177,7 @@ func (a *App) StartModules(ctx context.Context) error {
 	for _, id := range a.startOrder {
 		m := a.modules[id]
 		if s, ok := m.(StartupModule); ok {
-			a.logger.Info("Starting module", slog.String("module", id))
+			a.logger.Info("starting module", slog.String("module", id))
 			if err := s.Start(ctx); err != nil {
 				errs = append(errs, err)
 				a.logger.Error("failed to start module %s: %w", id, err)
@@ -210,6 +211,7 @@ func (a *App) ShutdownServer(ctx context.Context) error {
 
 // Stop gracefully shuts down the app and all modules. This is only called when the server is shutting down.
 func (a *App) Stop(ctx context.Context) error {
+	a.logger.Info("shutting down app")
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
@@ -223,8 +225,15 @@ func (a *App) Stop(ctx context.Context) error {
 			a.logger.Info("stopping module", "module", id)
 			if err := sm.Stop(ctx); err != nil {
 				errs = append(errs, err)
-				a.logger.Error("failed to stop module", slog.String("module", id), slog.String("error", err.Error()))
+				a.logger.Error("sailed to stop module", slog.String("module", id), slog.String("error", err.Error()))
 			}
+		}
+	}
+
+	// run the onShutdown callback if it's set
+	if a.onShutdown != nil {
+		if err := a.onShutdown(ctx); err != nil {
+			errs = append(errs, err)
 		}
 	}
 
@@ -261,7 +270,7 @@ func (a *App) OnTemplateData(fn OnTemplateDataFunc) {
 
 // OnShutdown registers a function to be called when the app is shutting down
 func (a *App) OnShutdown(fn func(context.Context) error) {
-	a.server.OnShutdown(fn)
+	a.onShutdown = fn
 }
 
 // NewResponse creates a new Response instance with the TemplateManager.

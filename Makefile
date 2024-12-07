@@ -50,7 +50,8 @@ test/cover:
 	go test -v -race -buildvcs -coverprofile=/tmp/coverage.out ./...
 	go tool cover -html=/tmp/coverage.out
 
-## bench: run all benchmarks
-.PHONY: bench
-bench:
-	go test
+## test/bench pkg=$1: run all benchmarks for the given package
+.PHONY: test/bench
+test/bench:
+	@if [ -z "${pkg}" ]; then echo "pkg is required. It should the path to the package to test"; exit 1; fi
+	go test -v ${pkg} -bench=. -benchmem -run ^$ #gosetup

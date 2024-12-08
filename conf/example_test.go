@@ -179,7 +179,8 @@ func ExampleBasicFlags() {
 	fs.SetOutput(io.Discard) // Disable flag output for example
 
 	// STEP3: Add basic flags
-	conf.BasicFlags(fs)
+	fs.String("config", "config.json", "Path to config file")
+	fs.Bool("version", false, "Show version and exit")
 
 	// STEP4: Add custom flags for this application
 	apiTimeout := fs.Duration("api-timeout", 0, "API timeout duration")

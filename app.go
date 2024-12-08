@@ -305,7 +305,6 @@ func (a *App) NewTemplateData(r *http.Request) map[string]any {
 		"IsAnyHtmxRequest":   htmx.IsAnyHtmxRequest(r),
 		"MaintenanceEnabled": a.config.Maintenance.Enabled,
 		"MaintenanceMessage": a.config.Maintenance.Message,
-		"Company":            a.config.Company,
 	}
 
 	// Add custom data from the callback function

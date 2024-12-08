@@ -1,9 +1,12 @@
 package utils
 
-import "net/http"
+import (
+	"net/http"
+	"strings"
+)
 
 func SameSiteFromString(key string) http.SameSite {
-	switch key {
+	switch strings.ToLower(key) {
 	case "lax":
 		return http.SameSiteLaxMode
 	case "strict":

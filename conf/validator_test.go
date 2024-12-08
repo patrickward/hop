@@ -9,14 +9,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/patrickward/hop/conf"
+	"github.com/patrickward/hop/conf/conftype"
 )
 
 // Test types for validation
 type ValidConfig struct {
 	Hop conf.HopConfig `json:"hop"`
 	API struct {
-		Timeout    conf.Duration `json:"timeout" default:"30s"`
-		MaxRetries int           `json:"max_retries" default:"3"`
+		Timeout    conftype.Duration `json:"timeout" default:"30s"`
+		MaxRetries int               `json:"max_retries" default:"3"`
 	} `json:"api"`
 }
 
@@ -30,7 +31,7 @@ func (c *ValidConfig) Validate() error {
 type InvalidConfig struct {
 	// Missing Hop framework config
 	API struct {
-		Timeout conf.Duration `json:"timeout"`
+		Timeout conftype.Duration `json:"timeout"`
 	} `json:"api"`
 }
 

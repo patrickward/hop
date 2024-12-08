@@ -5,6 +5,8 @@ import (
 	"os"
 	"reflect"
 	"strings"
+
+	"github.com/patrickward/hop/conf/conftype"
 )
 
 // EnvParser handles environment variable parsing for configuration structs
@@ -56,7 +58,7 @@ func (p *EnvParser) ParseStruct(val reflect.Value, prefix string) error {
 		}
 
 		// Handle nested structs (except Duration which is a special case)
-		if field.Kind() == reflect.Struct && structField.Type != reflect.TypeOf(Duration{}) {
+		if field.Kind() == reflect.Struct && structField.Type != reflect.TypeOf(conftype.Duration{}) {
 			if err := p.ParseStruct(field, envPath); err != nil {
 				return fmt.Errorf("parsing nested struct %s: %w", structField.Name, err)
 			}
@@ -100,7 +102,7 @@ func (p *EnvParser) ParseStructOLD(val reflect.Value, prefix string) error {
 		fmt.Println("envName: ", envName)
 
 		// Handle nested structs (except Duration which is a special case)
-		if field.Kind() == reflect.Struct && structField.Type != reflect.TypeOf(Duration{}) {
+		if field.Kind() == reflect.Struct && structField.Type != reflect.TypeOf(conftype.Duration{}) {
 			if err := p.ParseStruct(field, envName); err != nil {
 				return fmt.Errorf("parsing nested struct %s: %w", structField.Name, err)
 			}

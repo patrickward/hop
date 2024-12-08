@@ -1,229 +1,240 @@
-# Hop Configuration System
+# Configuration Package
 
-The Hop configuration system provides a flexible, type-safe way to manage application configuration through multiple sources including environment variables, JSON files, and default values.
+The `conf` package provides a flexible, layered configuration system for Go applications with support for JSON files, environment variables, and validation. It allows for hierarchical configuration with multiple sources and automatic environment variable mapping.
 
-## Core Features
+## Features
 
-- Multiple configuration sources with clear precedence
-- Type-safe configuration through Go structs
-- Environment variable support with optional prefixing
-- Default values through struct tags
-- Validation support (both framework and application-specific)
-- Configuration reloading
-- Pretty printing with sensitive value masking
+- JSON configuration file support with hierarchical override system
+- Automatic environment variable mapping
+- Configuration file discovery based on environment
+- Default value support via struct tags
+- Validation system
+- Secret value masking in logs/output
+- Duration string parsing
+- Pretty printing of configuration values
 
 ## Basic Usage
 
-### 1. Define Your Configuration
-
-Create a struct that includes the Hop framework configuration and your application-specific settings:
-
 ```go
-type AppConfig struct {
-    // Required: Hop framework configuration
-    Hop conf.HopConfig `json:"hop"`
+type MyConfig struct {
+    Hop conf.HopConfig        `json:"hop"`
+    Database struct {
+        Host     string       `json:"host" default:"localhost"`
+        Port     int          `json:"port" default:"5432"`
+        Password string       `json:"password" secret:"true"`
+    } `json:"database"`
+}
 
-    // Application-specific configuration
-    API struct {
-        Endpoint    string        `json:"endpoint" default:"http://api.local"`
-        Timeout     conf.Duration `json:"timeout" default:"30s"`
-        MaxRetries  int          `json:"max_retries" default:"3"`
-        SecretKey   string       `json:"secret_key"`
-    } `json:"api"`
+func main() {
+    config := &MyConfig{}
+    manager := conf.NewManager(config,
+        conf.WithEnvironment("development"),
+        conf.WithEnvPrefix("APP"),
+    )
+    
+    if err := manager.Load(); err != nil {
+        log.Fatal(err)
+    }
 }
 ```
 
-### 2. Initialize and Load
+## Configuration Sources
+
+The configuration system loads values in the following order (later sources override earlier ones):
+
+1. Default values from struct tags
+2. Discovered configuration files
+3. Explicitly specified configuration files
+4. Environment variables
+
+## Configuration File Discovery
+
+The system automatically discovers and loads configuration files in the following order:
+
+```
+config.json              # Base configuration
+config.local.json       # Local overrides
+config/config.json      # Config directory
+config/config.local.json # Config directory local overrides
+config.<env>.json       # Environment-specific config
+config/<env>.json       # Environment-specific in directory
+config/config.<env>.json # Environment-specific in config directory
+```
+
+## Manager Options
+
+The configuration manager supports several options for customization:
 
 ```go
-// Create config instance
-cfg := &AppConfig{}
-
-// Create manager with options
-mgr := conf.NewManager(cfg,
-    conf.WithConfigFile("config.json"),
-    conf.WithEnvPrefix("APP")
+manager := conf.NewManager(config,
+    // Set environment for file discovery
+    conf.WithEnvironment("development"),
+    
+    // Add environment variable prefix
+    conf.WithEnvPrefix("APP"),
+    
+    // Add specific config files
+    conf.WithConfigFile("config/custom.json"),
+    
+    // Add multiple config files
+    conf.WithConfigFiles("config/base.json", "config/override.json"),
+    
+    // Add all JSON files from a directory
+    conf.WithDefaultConfigDir("config"),
 )
-
-// Load configuration
-if err := mgr.Load(); err != nil {
-    log.Fatal(err)
-}
 ```
 
-## Configuration Sources and Precedence
+## Struct Tags
 
-The system loads configuration in the following order (later sources override earlier ones):
+The package supports several struct tags for configuration:
 
-1. Default values (from struct tags)
-2. JSON configuration files (in order specified)
-3. Environment variables
+- `json`: Specifies the JSON field name
+- `default`: Sets the default value
+- `secret`: Marks sensitive values for masking in output
+
+Example:
+```go
+type Config struct {
+    Port     int    `json:"port" default:"8080"`
+    Host     string `json:"host" default:"localhost"`
+    APIKey   string `json:"api_key" secret:"true"`
+    Timeout  conf.Duration `json:"timeout" default:"5m"`
+}
+```
 
 ## Environment Variables
 
-Environment variables are automatically mapped from struct fields using SCREAMING_SNAKE_CASE:
+Environment variables are automatically mapped to configuration fields using the following rules:
 
-- Struct field: `API.Endpoint` → Env var: `APP_API_ENDPOINT` (with prefix)
-- Struct field: `API.MaxRetries` → Env var: `APP_API_MAX_RETRIES` (with prefix)
+1. Field names are converted to SCREAMING_SNAKE_CASE
+2. Nested structs use underscore separation
+3. Optional prefix is prepended if specified
 
-## Default Values
+Example mapping:
+```
+Config struct:
+    Database.Host -> DATABASE_HOST
+    Database.MaxConnections -> DATABASE_MAX_CONNECTIONS
 
-Set defaults using the `default` struct tag:
+With prefix "APP":
+    Database.Host -> APP_DATABASE_HOST
+    Database.MaxConnections -> APP_DATABASE_MAX_CONNECTIONS
+```
+
+## Duration Support
+
+The package includes a special `Duration` type that supports parsing duration strings in both JSON and environment variables:
 
 ```go
-type Config struct {
-    Server struct {
-        Port int `json:"port" default:"8080"`
-    } `json:"server"`
+type ServerConfig struct {
+    ReadTimeout  conf.Duration `json:"read_timeout" default:"15s"`
+    WriteTimeout conf.Duration `json:"write_timeout" default:"15s"`
 }
 ```
 
-## Configuration Files
-
-JSON configuration files can be specified using the `WithConfigFile` or `WithConfigFiles` options:
-
-```go
-mgr := conf.NewManager(cfg,
-    conf.WithConfigFiles("config.json", "config.local.json"),
-)
-```
+Supported duration formats: "300ms", "1.5h", "2h45m", etc.
 
 ## Validation
 
-### Framework Validation
+The configuration system supports two types of validation:
 
-The system automatically validates that required Hop framework configuration is present.
+1. Framework validation (ensuring required Hop framework configuration)
+2. Custom validation via the `Validator` interface
 
-### Custom Validation
-
-Implement the `Validator` interface to add application-specific validation:
+To implement custom validation:
 
 ```go
-func (c *AppConfig) Validate() error {
-    if c.API.MaxRetries < 0 {
-        return fmt.Errorf("max retries cannot be negative")
+func (c *MyConfig) Validate() error {
+    if c.Database.Port < 1024 {
+        return fmt.Errorf("database port must be > 1024")
     }
     return nil
 }
 ```
 
-## Configuration Reloading
+## Pretty Printing
 
-Reload configuration at runtime:
+The configuration manager includes pretty printing support with automatic masking of sensitive values:
 
 ```go
-if err := mgr.Reload(); err != nil {
+fmt.Println(manager.String())
+
+// Output:
+// Database.Host                              = "localhost"
+// Database.Port                              = 5432
+// Database.Password                          = [REDACTED] "p***d"
+```
+
+## Reloading Configuration
+
+The configuration can be reloaded at runtime:
+
+```go
+if err := manager.Reload(); err != nil {
     log.Printf("Failed to reload configuration: %v", err)
 }
 ```
 
-## Pretty Printing
+## Thread Safety
 
-Print the current configuration with sensitive value masking:
-
-```go
-// Via manager
-fmt.Println(mgr.String())
-
-// Or directly
-fmt.Println(conf.PrettyString(cfg))
-```
-
-Output example:
-```
-Server.Host                                 = "localhost"
-Server.Port                                = 8080
-API.Endpoint                               = "http://api.example.com"
-API.SecretKey                              = "a***t"
-API.MaxRetries                             = 3
-```
-
-## Duration Type
-
-The system includes a custom `Duration` type for parsing time durations:
-
-```go
-type Config struct {
-    Timeout conf.Duration `json:"timeout" default:"30s"`
-}
-```
-
-Supported formats: "300ms", "1.5h", "2h45m", etc.
-
-## Advanced Features
-
-### Environment Prefixing
-
-Add a prefix to all environment variables:
-
-```go
-mgr := conf.NewManager(cfg, conf.WithEnvPrefix("MYAPP"))
-```
-
-### Sensitive Value Masking
-
-The pretty printer automatically masks values for fields containing these patterns:
-- password
-- secret
-- key
-- token
-- credential
-
-## Best Practices
-
-1. Always embed the Hop framework configuration:
-   ```go
-   type AppConfig struct {
-       Hop conf.HopConfig `json:"hop"`
-       // ... app config
-   }
-   ```
-
-2. Use meaningful default values:
-   ```go
-   `default:"5s"` // Clear duration
-   `default:"100"` // Reasonable limit
-   ```
-
-3. Implement custom validation for critical settings:
-   ```go
-   func (c *AppConfig) Validate() error {
-       // Validate configuration
-   }
-   ```
-
-4. Use environment variables for secrets:
-   ```go
-   SecretKey string `json:"secret_key"` // Set via APP_SECRET_KEY
-   ```
+The configuration manager is thread-safe and can be safely accessed from multiple goroutines. All read and write operations are protected by appropriate mutex locks.
 
 ## Error Handling
 
-The system provides detailed error messages for:
-- Invalid configuration files
-- Invalid environment variables
+The configuration system provides detailed error messages for:
+
+- File loading failures
+- Environment variable parsing errors
 - Validation failures
 - Type conversion errors
+- Missing required configurations
 
-Example:
+## Best Practices
+
+1. Always embed the `conf.HopConfig` struct in your configuration
+2. Use environment-specific files for different deployment environments
+3. Keep sensitive values in environment variables rather than config files
+4. Use the `secret` tag for sensitive values to prevent logging exposure
+5. Implement the `Validator` interface for custom validation rules
+6. Use strongly-typed configuration structs rather than maps
+7. Provide sensible defaults using the `default` tag
+
+## Example Complete Configuration
+
 ```go
-if err := mgr.Load(); err != nil {
-    log.Fatalf("Failed to load configuration: %v", err)
+type Config struct {
+    Hop conf.HopConfig `json:"hop"`
+    
+    Database struct {
+        Host            string        `json:"host" default:"localhost"`
+        Port            int           `json:"port" default:"5432"`
+        User            string        `json:"user" default:"postgres"`
+        Password        string        `json:"password" secret:"true"`
+        MaxConnections  int           `json:"max_connections" default:"100"`
+        ConnTimeout     conf.Duration `json:"conn_timeout" default:"10s"`
+    } `json:"database"`
+    
+    Redis struct {
+        Host     string        `json:"host" default:"localhost"`
+        Port     int           `json:"port" default:"6379"`
+        Timeout  conf.Duration `json:"timeout" default:"5s"`
+    } `json:"redis"`
+    
+    API struct {
+        Endpoint    string        `json:"endpoint" default:"http://api.example.com"`
+        Timeout     conf.Duration `json:"timeout" default:"30s"`
+        MaxRetries  int          `json:"max_retries" default:"3"`
+        APIKey      string       `json:"api_key" secret:"true"`
+    } `json:"api"`
+}
+
+func (c *Config) Validate() error {
+    if c.Database.MaxConnections < 1 {
+        return fmt.Errorf("database max connections must be positive")
+    }
+    if c.API.MaxRetries < 0 {
+        return fmt.Errorf("api max retries cannot be negative")
+    }
+    return nil
 }
 ```
-
-## Limitations
-
-- JSON files only (no YAML or TOML support)
-- No dynamic configuration updates (must call Reload)
-- No configuration history tracking
-- No configuration schema versioning
-
-## Contributing
-
-Before adding new features, consider:
-1. Backward compatibility
-2. Error handling
-3. Documentation updates
-4. Test coverage
-

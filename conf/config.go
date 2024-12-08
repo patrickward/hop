@@ -3,6 +3,8 @@
 // to set up command-line flags for configuration options.
 package conf
 
+import "github.com/patrickward/hop/conf/conftype"
+
 // HopConfig provides core configuration options
 type HopConfig struct {
 	App         AppConfig         `json:"app"`
@@ -53,8 +55,8 @@ type CsrfConfig struct {
 }
 
 type SessionConfig struct {
-	Lifetime      Duration `json:"lifetime" default:"168h"`
-	CookiePersist bool     `json:"cookie_persist" default:"true"`
+	Lifetime      conftype.Duration `json:"lifetime" default:"168h"`
+	CookiePersist bool              `json:"cookie_persist" default:"true"`
 	// Other same-site values: "none", "strict"
 	CookieSameSite string `json:"cookie_same_site" default:"lax"`
 	CookieSecure   bool   `json:"cookie_secure" default:"true"`
@@ -63,11 +65,11 @@ type SessionConfig struct {
 }
 
 type ServerConfig struct {
-	BaseURL         string   `json:"base_url" default:"http://localhost:4444"`
-	Host            string   `json:"host" default:"localhost"`
-	Port            int      `json:"port" default:"4444"`
-	IdleTimeout     Duration `json:"idle_timeout" default:"120s"`
-	ReadTimeout     Duration `json:"read_timeout" default:"15s"`
-	WriteTimeout    Duration `json:"write_timeout" default:"15s"`
-	ShutdownTimeout Duration `json:"shutdown_timeout" default:"10s"`
+	BaseURL         string            `json:"base_url" default:"http://localhost:4444"`
+	Host            string            `json:"host" default:"localhost"`
+	Port            int               `json:"port" default:"4444"`
+	IdleTimeout     conftype.Duration `json:"idle_timeout" default:"120s"`
+	ReadTimeout     conftype.Duration `json:"read_timeout" default:"15s"`
+	WriteTimeout    conftype.Duration `json:"write_timeout" default:"15s"`
+	ShutdownTimeout conftype.Duration `json:"shutdown_timeout" default:"10s"`
 }

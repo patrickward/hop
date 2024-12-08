@@ -9,7 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
+
+	"github.com/patrickward/hop/conf/conftype"
 )
 
 // Manager handles configuration loading and access
@@ -96,14 +97,7 @@ func (m *Manager) doLoad(cfg interface{}) error {
 		return fmt.Errorf("error setting defaults: %w", err)
 	}
 
-	//// If no files specified, check for default config.json
-	//if len(m.files) == 0 {
-	//	if _, err := os.Stat("config.json"); err == nil {
-	//		m.files = append(m.files, "config.json")
-	//	}
-	//}
-
-	// Load discovered files first
+	// Load discovered files
 	if m.discovery != nil {
 		for _, path := range m.discovery.paths() {
 			if err := m.loadFile(path); err != nil {
@@ -198,7 +192,7 @@ func setDefaultsStruct(val reflect.Value) error {
 		}
 
 		// Handle embedded structs
-		if field.Kind() == reflect.Struct && field.Type() != reflect.TypeOf(Duration{}) {
+		if field.Kind() == reflect.Struct && field.Type() != reflect.TypeOf(conftype.Duration{}) {
 			if err := setDefaultsStruct(field); err != nil {
 				return err
 			}
@@ -216,6 +210,11 @@ func setDefaultsStruct(val reflect.Value) error {
 	return nil
 }
 
+// StringParser is implemented by types that can parse themselves from strings
+type StringParser interface {
+	ParseString(s string) error
+}
+
 // setFieldValue sets the value of a struct field based on its type
 func setFieldValue(field reflect.Value, value string) error {
 	// Ensure the field is settable
@@ -223,41 +222,82 @@ func setFieldValue(field reflect.Value, value string) error {
 		return nil
 	}
 
-	switch field.Type().String() {
-	case "conf.Duration":
-		d, err := time.ParseDuration(value)
-		if err != nil {
-			return err
-		}
-		field.Set(reflect.ValueOf(Duration{d}))
-		return nil
+	// Custom types
+	if parser, ok := field.Addr().Interface().(StringParser); ok {
+		return parser.ParseString(value)
 	}
 
 	switch field.Kind() {
 	case reflect.String:
 		field.SetString(value)
+		return nil
+
 	case reflect.Bool:
 		b, err := strconv.ParseBool(value)
 		if err != nil {
 			return err
 		}
 		field.SetBool(b)
-	case reflect.Int, reflect.Int64:
-		i, err := strconv.ParseInt(value, 10, 64)
+		return nil
+
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		// Parse with appropriate bit size
+		bitSize := 0
+		switch field.Kind() {
+		case reflect.Int8:
+			bitSize = 8
+		case reflect.Int16:
+			bitSize = 16
+		case reflect.Int32:
+			bitSize = 32
+		case reflect.Int64:
+			bitSize = 64
+		default:
+			bitSize = 64
+		}
+		i, err := strconv.ParseInt(value, 10, bitSize)
 		if err != nil {
 			return err
 		}
 		field.SetInt(i)
-	case reflect.Float64:
-		f, err := strconv.ParseFloat(value, 64)
+		return nil
+
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		// Parse with appropriate bit size
+		bitSize := 0
+		switch field.Kind() {
+		case reflect.Uint8:
+			bitSize = 8
+		case reflect.Uint16:
+			bitSize = 16
+		case reflect.Uint32:
+			bitSize = 32
+		case reflect.Uint64:
+			bitSize = 64
+		default:
+			bitSize = 64
+		}
+		i, err := strconv.ParseUint(value, 10, bitSize)
+		if err != nil {
+			return err
+		}
+		field.SetUint(i)
+		return nil
+
+	case reflect.Float32, reflect.Float64:
+		bitSize := 64
+		if field.Kind() == reflect.Float32 {
+			bitSize = 32
+		}
+		f, err := strconv.ParseFloat(value, bitSize)
 		if err != nil {
 			return err
 		}
 		field.SetFloat(f)
+		return nil
 	default:
-		return fmt.Errorf("unsupported field type: %s", field.Type())
+		return fmt.Errorf("unsupported type: %s", field.Kind())
 	}
-	return nil
 }
 
 // String returns a pretty string representation of the configuration

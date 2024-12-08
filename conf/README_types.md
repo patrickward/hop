@@ -1,187 +1,221 @@
-# Adding Custom Types to the Configuration System
+# Configuration Types Guide
 
-## Overview
+## Built-in Types
 
-The configuration system supports custom types through Go's type system and interfaces. To add a custom type, you need to:
+The configuration system includes several built-in types in the `conftype` package for common configuration needs:
 
-1. Implement `json.Unmarshaler` for JSON file support
-2. Handle type conversion from string values for environment variables
-
-Our `Duration` type serves as a good example of how to implement a custom type:
-
+### Duration
 ```go
-// Duration wraps time.Duration for custom parsing
-type Duration struct {
-    time.Duration
-}
+import "github.com/patrickward/hop/conf/conftype"
 
-// UnmarshalJSON implements json.Unmarshaler for JSON file support
-func (d *Duration) UnmarshalJSON(b []byte) error {
-    var v interface{}
-    if err := json.Unmarshal(b, &v); err != nil {
-        return err
-    }
-    
-    switch value := v.(type) {
-    case float64:
-        d.Duration = time.Duration(value)
-        return nil
-    case string:
-        var err error
-        d.Duration, err = time.ParseDuration(value)
-        if err != nil {
-            return err
-        }
-        return nil
-    default:
-        return fmt.Errorf("invalid duration")
-    }
-}
-
-// String returns the string representation of the duration
-func (d Duration) String() string {
-    return d.Duration.String()
+type Config struct {
+    Timeout conftype.Duration `json:"timeout" default:"30s"`
 }
 ```
+Parses duration strings like "300ms", "1.5h", "2h45m". Uses Go's standard duration format.
 
-## Environment Variable Support
-
-For environment variables to work with your custom type, you need to add support in the `setFieldValue` function:
-
+### StringList
 ```go
-func setFieldValue(field reflect.Value, value string) error {
-    switch field.Type().String() {
-    case "conf.Duration":
-        d, err := time.ParseDuration(value)
-        if err != nil {
-            return err
-        }
-        field.Set(reflect.ValueOf(Duration{d}))
-        return nil
-    // ... other cases
-    }
-
-    switch field.Kind() {
-    case reflect.String:
-        field.SetString(value)
-    case reflect.Bool:
-        b, err := strconv.ParseBool(value)
-        if err != nil {
-            return err
-        }
-        field.SetBool(b)
-    // ... other cases
-    }
-    return nil
+type Config struct {
+    Tags conftype.StringList `json:"tags" default:"web,api,prod"`
 }
 ```
+Handles comma-separated string lists. Can be specified as JSON arrays or comma-separated strings.
 
-## Example: Adding a Custom URL Type
-
-Here's how to add a new URL type to the configuration system:
-
+### LogLevel
 ```go
-// URL wraps url.URL for configuration use
-type URL struct {
-    *url.URL
-}
-
-// UnmarshalJSON implements json.Unmarshaler
-func (u *URL) UnmarshalJSON(b []byte) error {
-    var s string
-    if err := json.Unmarshal(b, &s); err != nil {
-        return err
-    }
-    
-    parsed, err := url.Parse(s)
-    if err != nil {
-        return err
-    }
-    
-    u.URL = parsed
-    return nil
-}
-
-// String implements Stringer
-func (u URL) String() string {
-    if u.URL == nil {
-        return ""
-    }
-    return u.URL.String()
+type Config struct {
+    Level conftype.LogLevel `json:"level" default:"info"`
 }
 ```
+Validates against standard log levels: debug, info, warn, error.
 
-Then add support in `setFieldValue`:
-
+### ByteSize
 ```go
-func setFieldValue(field reflect.Value, value string) error {
-    switch field.Type().String() {
-    case "conf.URL":
-        parsed, err := url.Parse(value)
-        if err != nil {
-            return err
-        }
-        field.Set(reflect.ValueOf(URL{parsed}))
-        return nil
-    // ... other cases
-    }
-    // ... rest of implementation
+type Config struct {
+    MaxMemory conftype.ByteSize `json:"max_memory" default:"512MB"`
 }
 ```
+Parses human-readable byte sizes like "512MB", "1.5GB", "2TB". Supports B, KB, MB, GB, TB, PB suffixes.
 
-## Usage
+### TCPAddress
+```go
+type Config struct {
+    Server conftype.TCPAddress `json:"server" default:"localhost:8080"`
+}
+```
+Validates and parses host:port combinations with proper port range checking.
 
-Use your custom type in configuration structs:
+### TimeZone
+```go
+type Config struct {
+    Location conftype.TimeZone `json:"location" default:"America/New_York"`
+}
+```
+Validates against valid time zone names and provides a string representation.
+
+## Basic JSON Types
+
+The configuration system supports all standard JSON types:
 
 ```go
 type Config struct {
-    Server struct {
-        BaseURL URL      `json:"base_url" default:"http://localhost:8080"`
-        Timeout Duration `json:"timeout" default:"30s"`
-    } `json:"server"`
-}
-```
-
-## Testing Custom Types
-
-Test both JSON unmarshaling and environment variable parsing:
-
-```go
-func TestURLParsing(t *testing.T) {
-    // Test JSON unmarshaling
-    var u URL
-    err := json.Unmarshal([]byte(`"http://example.com"`), &u)
-    require.NoError(t, err)
-    assert.Equal(t, "http://example.com", u.String())
-
-    // Test environment variable parsing
-    cfg := &Config{}
-    mgr := conf.NewManager(cfg)
+    // String
+    Name string `json:"name" default:"default-name"`
     
-    os.Setenv("SERVER_BASE_URL", "http://example.com")
-    err = mgr.Load()
-    require.NoError(t, err)
-    assert.Equal(t, "http://example.com", cfg.Server.BaseURL.String())
+    // Boolean
+    Enabled bool `json:"enabled" default:"true"`
+    
+    // Integer types
+    Port int `json:"port" default:"8080"`
+    SmallValue int8 `json:"small_value"`
+    MediumValue int16 `json:"medium_value"`
+    LargeValue int32 `json:"large_value"`
+    HugeValue int64 `json:"huge_value"`
+    
+    // Unsigned integer types
+    UnsignedPort uint `json:"unsigned_port"`
+    SmallUnsigned uint8 `json:"small_unsigned"`
+    MediumUnsigned uint16 `json:"medium_unsigned"`
+    LargeUnsigned uint32 `json:"large_unsigned"`
+    HugeUnsigned uint64 `json:"huge_unsigned"`
+    
+    // Float types
+    Factor float32 `json:"factor"`
+    Precise float64 `json:"precise"`
 }
 ```
+
+## Adding Custom Types
+
+You can add your own custom types by implementing three interfaces:
+
+1. `StringParser` for environment variables and defaults
+2. `json.Marshaler` and `json.Unmarshaler` for JSON support
+3. `fmt.Stringer` for string representation (recommended)
+
+Here are some examples of useful custom types you might want to implement:
+
+### Email Address
+```go
+type EmailAddress string
+
+func (e *EmailAddress) ParseString(s string) error {
+    // Validate email format
+    if !strings.Contains(s, "@") {
+        return fmt.Errorf("invalid email address: %s", s)
+    }
+    *e = EmailAddress(s)
+    return nil
+}
+
+func (e EmailAddress) MarshalJSON() ([]byte, error) {
+    return json.Marshal(string(e))
+}
+
+func (e *EmailAddress) UnmarshalJSON(data []byte) error {
+    var s string
+    if err := json.Unmarshal(data, &s); err != nil {
+        return err
+    }
+    return e.ParseString(s)
+}
+
+func (e EmailAddress) String() string {
+    return string(e)
+}
+```
+
+### RegexPattern
+```go
+type RegexPattern struct {
+    pattern *regexp.Regexp
+}
+
+func (r *RegexPattern) ParseString(s string) error {
+    pattern, err := regexp.Compile(s)
+    if err != nil {
+        return fmt.Errorf("invalid regex pattern: %w", err)
+    }
+    r.pattern = pattern
+    return nil
+}
+
+func (r RegexPattern) MarshalJSON() ([]byte, error) {
+    if r.pattern == nil {
+        return []byte(`""`), nil
+    }
+    return json.Marshal(r.pattern.String())
+}
+
+func (r *RegexPattern) UnmarshalJSON(data []byte) error {
+    var s string
+    if err := json.Unmarshal(data, &s); err != nil {
+        return err
+    }
+    return r.ParseString(s)
+}
+
+func (r RegexPattern) String() string {
+    if r.pattern == nil {
+        return ""
+    }
+    return r.pattern.String()
+}
+```
+
+Other useful types you might consider implementing:
+- FilePath (with existence/permission validation)
+- DatabaseURL (with connection string parsing)
+- JSONData (for embedded JSON objects)
+- TimeZone (with validation against valid zones)
+- CIDRRange (for network subnet configuration)
+- CSVData (for structured comma-separated data)
 
 ## Best Practices
 
-1. Always implement `String()` for pretty printing support
-2. Provide clear error messages for parsing failures
+1. Always implement both JSON and string parsing
+2. Provide clear error messages for invalid values
 3. Handle empty/zero values gracefully
-4. Test both JSON and environment variable parsing
-5. Document any specific formatting requirements
+4. Include proper validation
+5. Use appropriate types for the data (don't just use string for everything)
+6. Document any specific format requirements
+7. Add thorough tests for all parsing scenarios
 
-## Implementation Notes
+## Testing Your Types
 
-- The system uses Go's reflection to handle type conversion
-- Custom types need to be handled explicitly in `setFieldValue`
-- JSON unmarshaling is handled through the standard `encoding/json` package
-- Default values are parsed using the same mechanism as environment variables
+Be sure to test:
+1. JSON marshaling and unmarshaling
+2. String parsing for environment variables
+3. Default value handling
+4. Error cases
+5. Edge cases (empty values, invalid formats)
+6. String representation
 
-## Limitations
+Example:
+```go
+func TestEmailAddress(t *testing.T) {
+    cases := []struct {
+        input    string
+        valid    bool
+        expected string
+    }{
+        {"user@example.com", true, "user@example.com"},
+        {"invalid", false, ""},
+        {"", true, ""},
+    }
 
-- Custom types must be added to `setFieldValue` explicitly
-- No support for generic type conversion
-- Default values must be parseable as strings
+    for _, tc := range cases {
+        t.Run(tc.input, func(t *testing.T) {
+            var email EmailAddress
+            err := email.ParseString(tc.input)
+            if tc.valid {
+                assert.NoError(t, err)
+                assert.Equal(t, tc.expected, email.String())
+            } else {
+                assert.Error(t, err)
+            }
+        })
+    }
+}
+```

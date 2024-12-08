@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/patrickward/hop/conf/conftype"
 )
 
 var maskChar = "*"
@@ -38,7 +40,7 @@ func prettyPrint(val reflect.Value, prefix string, sb *strings.Builder) {
 		}
 
 		// Handle nested structs (except Duration which is a special case)
-		if field.Kind() == reflect.Struct && field.Type() != reflect.TypeOf(Duration{}) {
+		if field.Kind() == reflect.Struct && field.Type() != reflect.TypeOf(conftype.Duration{}) {
 			prettyPrint(field, fieldName, sb)
 			continue
 		}
@@ -70,8 +72,8 @@ func formatValue(field reflect.Value, fieldType reflect.StructField) string {
 		return fmt.Sprintf("%.2f", field.Float())
 	default:
 		// Handle Duration type
-		if field.Type() == reflect.TypeOf(Duration{}) {
-			d := field.Interface().(Duration)
+		if field.Type() == reflect.TypeOf(conftype.Duration{}) {
+			d := field.Interface().(conftype.Duration)
 			return fmt.Sprintf("%v", d.Duration)
 		}
 		return fmt.Sprintf("%v", field.Interface())

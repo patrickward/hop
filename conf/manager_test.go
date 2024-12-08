@@ -11,16 +11,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/patrickward/hop/conf"
+	"github.com/patrickward/hop/conf/conftype"
 )
 
 type TestConfig struct {
 	Hop conf.HopConfig
 	API struct {
-		Endpoint    string        `json:"endpoint" default:"http://api.local"`
-		Timeout     conf.Duration `json:"timeout" default:"30s"`
-		MaxRetries  int           `json:"max_retries" default:"3"`
-		RetryDelay  conf.Duration `json:"retry_delay" default:"5s"`
-		EnableCache bool          `json:"enable_cache" default:"true"`
+		Endpoint    string            `json:"endpoint" default:"http://api.local"`
+		Timeout     conftype.Duration `json:"timeout" default:"30s"`
+		MaxRetries  int               `json:"max_retries" default:"3"`
+		RetryDelay  conftype.Duration `json:"retry_delay" default:"5s"`
+		EnableCache bool              `json:"enable_cache" default:"true"`
 	} `json:"api"`
 }
 

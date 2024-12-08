@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/patrickward/hop/conf"
+	"github.com/patrickward/hop/conf/conftype"
 )
 
 func Example() {
@@ -14,13 +15,13 @@ func Example() {
 	type AppConfig struct {
 		Hop   conf.HopConfig // Inherit base configuration
 		Redis struct {
-			Host    string        `json:"host" env:"REDIS_HOST" default:"localhost"`
-			Port    int           `json:"port" env:"REDIS_PORT" default:"6379"`
-			Timeout conf.Duration `json:"timeout" env:"REDIS_TIMEOUT" default:"5s"`
+			Host    string            `json:"host" env:"REDIS_HOST" default:"localhost"`
+			Port    int               `json:"port" env:"REDIS_PORT" default:"6379"`
+			Timeout conftype.Duration `json:"timeout" env:"REDIS_TIMEOUT" default:"5s"`
 		} `json:"redis"`
 		API struct {
-			Endpoint string        `json:"endpoint" env:"API_ENDPOINT" default:"http://api.local"`
-			Timeout  conf.Duration `json:"timeout" env:"API_TIMEOUT" default:"30s"`
+			Endpoint string            `json:"endpoint" env:"API_ENDPOINT" default:"http://api.local"`
+			Timeout  conftype.Duration `json:"timeout" env:"API_TIMEOUT" default:"30s"`
 		} `json:"api"`
 	}
 
@@ -91,8 +92,8 @@ func Example() {
 // ExampleDuration demonstrates how to use the Duration type
 func ExampleDuration() {
 	type Config struct {
-		Hop     conf.HopConfig // Inherit base configuration
-		Timeout conf.Duration  `json:"timeout" env:"TIMEOUT" default:"30s"`
+		Hop     conf.HopConfig    // Inherit base configuration
+		Timeout conftype.Duration `json:"timeout" env:"TIMEOUT" default:"30s"`
 	}
 
 	cfg := &Config{}
@@ -136,8 +137,8 @@ func ExampleBasicFlags() {
 	type AppConfig struct {
 		Hop conf.HopConfig
 		API struct {
-			Endpoint string        `json:"endpoint" env:"API_ENDPOINT" default:"http://api.local"`
-			Timeout  conf.Duration `json:"timeout" env:"API_TIMEOUT" default:"30s"`
+			Endpoint string            `json:"endpoint" env:"API_ENDPOINT" default:"http://api.local"`
+			Timeout  conftype.Duration `json:"timeout" env:"API_TIMEOUT" default:"30s"`
 		} `json:"api"`
 	}
 
@@ -203,7 +204,7 @@ func ExampleBasicFlags() {
 
 	// Apply other flag values that should override config
 	if apiTimeout != nil && *apiTimeout != 0 {
-		cfg.API.Timeout = conf.Duration{Duration: *apiTimeout}
+		cfg.API.Timeout = conftype.Duration{Duration: *apiTimeout}
 	}
 
 	// Print the resulting configuration

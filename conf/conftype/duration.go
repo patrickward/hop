@@ -1,4 +1,4 @@
-package conf
+package conftype
 
 import (
 	"encoding/json"
@@ -9,6 +9,18 @@ import (
 // Duration is a wrapper around time.Duration that supports JSON marshaling/unmarshaling
 type Duration struct {
 	time.Duration
+}
+
+// ParseString handles environment variables and default values
+//
+//goland:noinspection GoMixedReceiverTypes
+func (d *Duration) ParseString(s string) error {
+	parsed, err := time.ParseDuration(s)
+	if err != nil {
+		return err
+	}
+	d.Duration = parsed
+	return nil
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface
@@ -41,4 +53,12 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 //goland:noinspection ALL
 func (d Duration) MarshalJSON() ([]byte, error) {
 	return json.Marshal(d.String())
+}
+
+// String returns the string representation of the duration
+// Implements the fmt.Stringer interface for pretty printing
+//
+//goland:noinspection GoMixedReceiverTypes
+func (d Duration) String() string {
+	return d.Duration.String()
 }

@@ -2,6 +2,8 @@ package conf_test
 
 import (
 	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -23,6 +25,14 @@ type TestConfig struct {
 }
 
 func TestConfigManager(t *testing.T) {
+	// Get test directory
+	_, filename, _, ok := runtime.Caller(0)
+	require.True(t, ok, "should get test file path")
+	testDir := filepath.Dir(filename)
+
+	// Use filepath.Join for test data paths
+	testDataPath := filepath.Join(testDir, "testdata", "config.json")
+
 	tests := []struct {
 		name        string
 		files       []string
@@ -44,7 +54,7 @@ func TestConfigManager(t *testing.T) {
 		},
 		{
 			name:  "load_from_json",
-			files: []string{"testdata/config.json"},
+			files: []string{testDataPath},
 			env:   map[string]string{},
 			validate: func(t *testing.T, cfg *TestConfig) {
 				assertion := assert.New(t)
@@ -55,7 +65,7 @@ func TestConfigManager(t *testing.T) {
 		},
 		{
 			name:  "env_overrides_json",
-			files: []string{"testdata/config.json"},
+			files: []string{testDataPath},
 			env: map[string]string{
 				"HOP_SERVER_PORT": "8080",
 				"API_ENDPOINT":    "https://override.com",
@@ -98,10 +108,12 @@ func TestConfigManager(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear environment first
 			os.Clearenv()
+			t.Logf("Environment cleared for test: %s", tt.name)
 
 			// Set test environment variables
 			for k, v := range tt.env {
 				require.NoError(t, os.Setenv(k, v), "setting env variable %s=%s", k, v)
+				t.Logf("Set env var %s=%s", k, v)
 			}
 
 			cfg := &TestConfig{}
@@ -114,6 +126,14 @@ func TestConfigManager(t *testing.T) {
 			}
 
 			require.NoError(t, err, "should load without error")
+
+			// Log the actual values before validation
+			t.Logf("Actual values - Port: %d, Endpoint: %s, Timeout: %s, MaxRetries: %d",
+				cfg.Hop.Server.Port,
+				cfg.API.Endpoint,
+				cfg.API.Timeout.Duration,
+				cfg.API.MaxRetries)
+
 			tt.validate(t, cfg)
 		})
 	}

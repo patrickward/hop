@@ -6,19 +6,7 @@ import (
 	"strings"
 )
 
-var (
-	// sensitiveFields defines patterns for field names that should be redacted
-	sensitiveFields = []string{
-		"password",
-		"secret",
-		"key",
-		"token",
-		"credential",
-	}
-
-	// maskChar is the character used for masking
-	maskChar = "*"
-)
+var maskChar = "*"
 
 // PrettyString returns a formatted string representation of the configuration
 func PrettyString(cfg interface{}) string {
@@ -56,15 +44,15 @@ func prettyPrint(val reflect.Value, prefix string, sb *strings.Builder) {
 		}
 
 		// Get the formatted value
-		value := formatValue(field, fieldType.Name)
+		value := formatValue(field, fieldType)
 		_, _ = fmt.Fprintf(sb, "%-40s = %s\n", fieldName, value)
 	}
 }
 
 // formatValue returns the formatted value, masking sensitive data
-func formatValue(field reflect.Value, fieldName string) string {
-	// Check if this is a sensitive field
-	if isSensitive(fieldName) {
+func formatValue(field reflect.Value, fieldType reflect.StructField) string {
+	// Check for secret tag
+	if _, isSecret := fieldType.Tag.Lookup("secret"); isSecret {
 		return maskValue(field)
 	}
 
@@ -90,17 +78,6 @@ func formatValue(field reflect.Value, fieldName string) string {
 	}
 }
 
-// isSensitive checks if a field name indicates sensitive data
-func isSensitive(fieldName string) bool {
-	fieldName = strings.ToLower(fieldName)
-	for _, pattern := range sensitiveFields {
-		if strings.Contains(fieldName, pattern) {
-			return true
-		}
-	}
-	return false
-}
-
 // maskValue returns a masked version of the value
 func maskValue(field reflect.Value) string {
 	switch field.Kind() {
@@ -111,9 +88,9 @@ func maskValue(field reflect.Value) string {
 		}
 		// Show first and last character if string is long enough
 		if len(val) > 4 {
-			return fmt.Sprintf("%q", val[:1]+strings.Repeat(maskChar, 3)+val[len(val)-1:])
+			return fmt.Sprintf("[REDACTED] %q", val[:1]+strings.Repeat(maskChar, 3)+val[len(val)-1:])
 		}
-		return fmt.Sprintf("%q", strings.Repeat(maskChar, len(val)))
+		return fmt.Sprintf("[REDACTED] %q", strings.Repeat(maskChar, len(val)))
 	default:
 		return strings.Repeat(maskChar, 8)
 	}

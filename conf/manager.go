@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -18,6 +19,7 @@ type Manager struct {
 	files     []string
 	envParser *EnvParser
 	validator *HopConfigValidator
+	discovery *configDiscovery
 }
 
 // Option is a functional option for Manager
@@ -29,6 +31,7 @@ func NewManager(config interface{}, opts ...Option) *Manager {
 		config:    config,
 		envParser: NewEnvParser(""),
 		validator: &HopConfigValidator{},
+		discovery: &configDiscovery{},
 	}
 
 	for _, opt := range opts {
@@ -74,6 +77,15 @@ func WithDefaultConfigDir(dir string) Option {
 	}
 }
 
+// WithEnvironment sets the environment for configuration file discovery
+func WithEnvironment(env string) Option {
+	return func(m *Manager) {
+		m.discovery = &configDiscovery{
+			environment: strings.ToLower(env),
+		}
+	}
+}
+
 // doLoad initializes the configuration in a specific order:
 // 1. Set defaults from struct tags
 // 2. Load JSON files in order specified
@@ -84,10 +96,19 @@ func (m *Manager) doLoad(cfg interface{}) error {
 		return fmt.Errorf("error setting defaults: %w", err)
 	}
 
-	// If no files specified, check for default config.json
-	if len(m.files) == 0 {
-		if _, err := os.Stat("config.json"); err == nil {
-			m.files = append(m.files, "config.json")
+	//// If no files specified, check for default config.json
+	//if len(m.files) == 0 {
+	//	if _, err := os.Stat("config.json"); err == nil {
+	//		m.files = append(m.files, "config.json")
+	//	}
+	//}
+
+	// Load discovered files first
+	if m.discovery != nil {
+		for _, path := range m.discovery.paths() {
+			if err := m.loadFile(path); err != nil {
+				return fmt.Errorf("error loading file %s: %w", path, err)
+			}
 		}
 	}
 

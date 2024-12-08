@@ -31,7 +31,7 @@ type OnTemplateDataFunc func(r *http.Request, data *map[string]any)
 
 // AppConfig is a configuration for the app
 type AppConfig struct {
-	Config          *conf.Config
+	Config          *conf.HopConfig
 	Logger          *slog.Logger
 	TemplateSources render.Sources
 	TemplateFuncs   template.FuncMap
@@ -48,7 +48,7 @@ type App struct {
 	server         *serve.Server               // server instance
 	router         *route.Mux                  // router instance
 	tm             *render.TemplateManager     // template manager instance
-	config         *conf.Config                // configuration
+	config         *conf.HopConfig             // configuration
 	events         *events.Bus                 // event bus instance
 	session        *scs.SessionManager         // session manager instance
 	modules        map[string]Module           // map of modules by ID
@@ -256,7 +256,7 @@ func (a *App) Session() *scs.SessionManager { return a.session }
 func (a *App) TM() *render.TemplateManager { return a.tm }
 
 // Config returns the configuration for the app
-func (a *App) Config() *conf.Config { return a.config }
+func (a *App) Config() *conf.HopConfig { return a.config }
 
 // RunInBackground runs a function in the background via the server
 func (a *App) RunInBackground(r *http.Request, fn func() error) {

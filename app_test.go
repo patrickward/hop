@@ -450,7 +450,7 @@ func createTestApp(t *testing.T) (*hop.App, error) {
 	t.Helper()
 
 	cfg := hop.AppConfig{
-		Config: &conf.Config{
+		Config: &conf.HopConfig{
 			App: conf.AppConfig{
 				Environment: "test",
 			},
@@ -649,9 +649,9 @@ func TestFullServerStart(t *testing.T) {
 	app, err := createTestApp(t)
 	require.NoError(t, err)
 
-	app.Router().HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	app.Router().HandleFunc("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-	})
+	}))
 
 	// Start server in a goroutine
 	errCh := make(chan error, 1)

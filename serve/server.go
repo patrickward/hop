@@ -23,7 +23,7 @@ import (
 type DataFunc func(r *http.Request, data *map[string]any)
 
 type Server struct {
-	config     *conf.Config
+	config     *conf.HopConfig
 	onShutdown func(context.Context) error
 	httpServer *http.Server
 	logger     *slog.Logger
@@ -34,7 +34,7 @@ type Server struct {
 }
 
 // NewServer creates a new server with the given configuration and logger.
-func NewServer(config *conf.Config, logger *slog.Logger, router *route.Mux) *Server {
+func NewServer(config *conf.HopConfig, logger *slog.Logger, router *route.Mux) *Server {
 	if router == nil {
 		router = route.New()
 	}
@@ -61,7 +61,7 @@ func NewServer(config *conf.Config, logger *slog.Logger, router *route.Mux) *Ser
 }
 
 // Config returns the server configuration.
-func (s *Server) Config() *conf.Config {
+func (s *Server) Config() *conf.HopConfig {
 	return s.config
 }
 

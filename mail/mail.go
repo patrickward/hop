@@ -232,16 +232,16 @@ func (m *Mailer) processTemplates(email *gomail.Msg, msg *Message) error {
 	email.Subject(subject.String())
 
 	// Process bodies
-	plainBody, htmlBody, err := m.processBodies(tmpl, msg.TemplateData)
+	textPlain, textHTML, err := m.processBodies(tmpl, msg.TemplateData)
 	if err != nil {
 		return err
 	}
 
-	if plainBody.Len() == 0 && htmlBody.Len() == 0 {
+	if textPlain.Len() == 0 && textHTML.Len() == 0 {
 		return ErrNoContent
 	}
 
-	return m.setBodies(email, plainBody, htmlBody)
+	return m.setBodies(email, textPlain, textHTML)
 }
 
 func (m *Mailer) executeTemplate(tmpl *template.Template, name string, data any) (*bytes.Buffer, error) {
@@ -255,22 +255,22 @@ func (m *Mailer) executeTemplate(tmpl *template.Template, name string, data any)
 // Template helper methods for Mailer
 func (m *Mailer) processBodies(tmpl *template.Template, data any) (*bytes.Buffer, *bytes.Buffer, error) {
 	// Execute plain body template
-	plainBody, err := m.executeTemplate(tmpl, "plainBody", data)
+	textPlain, err := m.executeTemplate(tmpl, "text/plain", data)
 	if err != nil {
 		return nil, nil, &TemplateError{
-			TemplateName: "plainBody",
+			TemplateName: "text/plain",
 			OriginalErr:  err,
 			Phase:        "execute",
 		}
 	}
 
 	// Execute HTML body template if it exists
-	var htmlBody *bytes.Buffer
-	if t := tmpl.Lookup("htmlBody"); t != nil {
-		htmlBuf, err := m.executeTemplate(tmpl, "htmlBody", data)
+	var textHTML *bytes.Buffer
+	if t := tmpl.Lookup("text/html"); t != nil {
+		htmlBuf, err := m.executeTemplate(tmpl, "text/html", data)
 		if err != nil {
 			return nil, nil, &TemplateError{
-				TemplateName: "htmlBody",
+				TemplateName: "text/html",
 				OriginalErr:  err,
 				Phase:        "execute",
 			}
@@ -281,30 +281,30 @@ func (m *Mailer) processBodies(tmpl *template.Template, data any) (*bytes.Buffer
 			processed, err := m.htmlProcessor.Process(htmlBuf.String())
 			if err != nil {
 				return nil, nil, &TemplateError{
-					TemplateName: "htmlBody",
+					TemplateName: "text/html",
 					OriginalErr:  err,
 					Phase:        "process",
 				}
 			}
-			htmlBody = bytes.NewBufferString(processed)
+			textHTML = bytes.NewBufferString(processed)
 		} else {
-			htmlBody = htmlBuf
+			textHTML = htmlBuf
 		}
 	}
 
-	return plainBody, htmlBody, nil
+	return textPlain, textHTML, nil
 }
 
-func (m *Mailer) setBodies(email *gomail.Msg, plainBody, htmlBody *bytes.Buffer) error {
-	if plainBody.Len() > 0 {
-		email.SetBodyString(gomail.TypeTextPlain, plainBody.String())
+func (m *Mailer) setBodies(email *gomail.Msg, textPlain, textHTML *bytes.Buffer) error {
+	if textPlain.Len() > 0 {
+		email.SetBodyString(gomail.TypeTextPlain, textPlain.String())
 	}
 
-	if htmlBody.Len() > 0 {
-		if plainBody.Len() > 0 {
-			email.AddAlternativeString(gomail.TypeTextHTML, htmlBody.String())
+	if textHTML.Len() > 0 {
+		if textPlain.Len() > 0 {
+			email.AddAlternativeString(gomail.TypeTextHTML, textHTML.String())
 		} else {
-			email.SetBodyString(gomail.TypeTextHTML, htmlBody.String())
+			email.SetBodyString(gomail.TypeTextHTML, textHTML.String())
 		}
 	}
 

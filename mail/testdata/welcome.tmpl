@@ -1,7 +1,7 @@
 // testdata/welcome.tmpl
 {{define "subject"}}Welcome to {{.Company}}{{end}}
 
-{{define "plainBody"}}
+{{define "text/plain"}}
     Welcome {{.Name}}!
 
     We're excited to have you join {{.Company}}.
@@ -10,7 +10,7 @@
     The Team
 {{end}}
 
-{{define "htmlBody"}}
+{{define "text/html"}}
 <!DOCTYPE html>
 <html>
 <body>

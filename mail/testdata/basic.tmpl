@@ -1,6 +1,6 @@
 {{define "subject"}}Test Email{{end}}
 
-{{define "plainBody"}}
+{{define "text/plain"}}
     Hello {{.name}}!
 
     This is a test email.
@@ -9,7 +9,7 @@
     The Test Team
 {{end}}
 
-{{define "htmlBody"}}
+{{define "text/html"}}
     <html>
     <body>
     <p>Hello {{.name}}!</p>

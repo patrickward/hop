@@ -1,6 +1,6 @@
 {{define "subject"}}Welcome, {{.name}}{{end}}
 
-{{define "plainBody"}}
+{{define "text/plain"}}
     {{block "@header" .}}FOO{{end}}
 
     Thank you for joining us.
@@ -9,7 +9,7 @@
     The Team
 {{end}}
 
-{{define "htmlBody"}}
+{{define "text/html"}}
     <h1>
         {{block "@header" .}}{{end}}
     </h1>

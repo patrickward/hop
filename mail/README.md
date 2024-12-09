@@ -82,15 +82,15 @@ type Config struct {
 
 Templates must define three sections:
 - `subject`: The email subject
-- `plainBody`: Plain text version of the email
-- `htmlBody`: HTML version of the email (optional)
+- `text/plain`: Plain text version of the email
+- `text/html`: HTML version of the email (optional)
 
 Example template:
 
 ```go
 {{define "subject"}}Welcome to {{.Company}}{{end}}
 
-{{define "plainBody"}}
+{{define "text/plain"}}
 Hello {{.Name}},
 
 Welcome to {{.Company}}! We're glad to have you on board.
@@ -99,7 +99,7 @@ Best regards,
 The Team
 {{end}}
 
-{{define "htmlBody"}}
+{{define "text/html"}}
 <html>
 <body>
     <h1>Welcome to {{.Company}}</h1>
@@ -186,8 +186,8 @@ This can be used for tasks like CSS inlining or HTML modification before sending
 ## Known Limitations
 
 1. Template Requirements
-    - Templates must provide at least `subject` and `plainBody` sections
-    - HTML body (`htmlBody`) is optional but recommended
+    - Templates must provide at least `subject` and `text/plain` sections
+    - HTML body (`text/html`) is optional but recommended
 
 2. SMTP Support
     - Limited to SMTP protocol

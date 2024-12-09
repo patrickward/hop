@@ -39,10 +39,27 @@ lint:
 ## DEVELOPMENT:
 # ==================================================================================== #
 
-## test: run all tests
+## test: run all tests for the project
 .PHONY: test
 test:
 	go test -v -race -buildvcs ./...
+
+## test/mail: run all integration tests for the mail package. Requires a mailpit server running. See mail/README.md
+.PHONY: test/mail
+test/mail:
+	@TEST_MAILPIT=1 go test -v -race -buildvcs -tags=integration ./mail
+
+## test/unit pkg=$1: run all unit tests for the given package
+.PHONY: test/unit
+test/unit:
+	@if [ -z "${pkg}" ]; then echo "pkg is required. It should the path to the package to test"; exit 1; fi
+	go test -v -race -buildvcs ${pkg}/...
+
+## test/integration pkg=$1: run all integration tests for the given package
+.PHONY: test/integration
+test/integration:
+	@if [ -z "${pkg}" ]; then echo "pkg is required. It should the path to the package to test"; exit 1; fi
+	go test -v -race -buildvcs -tags=integration ${pkg}/...
 
 ## test/cover: run all tests and display coverage
 .PHONY: test/cover

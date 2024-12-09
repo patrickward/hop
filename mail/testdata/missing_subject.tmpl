@@ -1,0 +1,15 @@
+{{define "plainBody"}}
+    Hello {{.name}}!
+
+    This is a test email with no subject.
+{{end}}
+
+{{define "htmlBody"}}
+    <html>
+    <body>
+    <p>Hello {{.name}}!</p>
+
+    <p>This is a test email with no subject.</p>
+    </body>
+    </html>
+{{end}}

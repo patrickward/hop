@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io"
 	"io/fs"
 	"strings"
 	"time"
@@ -20,6 +19,11 @@ var (
 	ErrNoContent = errors.New("email must have either plain text or HTML body")
 	ErrNoSubject = errors.New("email must have a subject")
 )
+
+// SMTPClient defines the interface for an SMTP client, mainly used for testing
+type SMTPClient interface {
+	DialAndSend(messages ...*gomail.Msg) error
+}
 
 // Config holds the mailer configuration
 type Config struct {
@@ -75,43 +79,17 @@ func (p *DefaultHTMLProcessor) Process(html string) (string, error) {
 // StringList is an alias for a slice of strings
 type StringList = []string
 
-// EmailMessage represents the content and recipients of an email
-type EmailMessage struct {
-	To           StringList   // List of recipient email addresses
-	Templates    StringList   // List of template names to proccess
-	TemplateData any          // Data to be passed to the templates
-	Attachments  []Attachment // List of attachments
-}
-
-// Attachment represents an email attachment
-type Attachment struct {
-	Filename    string
-	Data        io.Reader
-	ContentType gomail.ContentType
-}
-
 // Mailer handles email sending operations
 type Mailer struct {
-	config        *Config
-	client        *gomail.Client
+	config *Config
+	//client        *gomail.Client
+	client        SMTPClient
 	funcMap       template.FuncMap
 	htmlProcessor HTMLProcessor
 }
 
-// NewMailer creates a new Mailer instance
+// NewMailer creates a new Mailer instance using the provided configuration and the default SMTP client
 func NewMailer(cfg *Config) (*Mailer, error) {
-	if cfg.RetryCount == 0 {
-		cfg.RetryCount = 3
-	}
-	if cfg.RetryDelay == 0 {
-		cfg.RetryDelay = 2 * time.Second
-	}
-	if cfg.HTMLProcessor == nil {
-		cfg.HTMLProcessor = &DefaultHTMLProcessor{}
-	}
-
-	funcMap := render.MergeFuncMaps(cfg.TemplateFuncMap)
-
 	authType := authTypeFromString(cfg.AuthType)
 	tlsPolicy := tlsPolicyFromInt(cfg.TLSPolicy)
 
@@ -128,12 +106,29 @@ func NewMailer(cfg *Config) (*Mailer, error) {
 		return nil, fmt.Errorf("failed to create mail client: %w", err)
 	}
 
+	return NewMailerWithClient(cfg, client), nil
+}
+
+// NewMailerWithClient creates a new Mailer with a provided SMTP client
+func NewMailerWithClient(cfg *Config, client SMTPClient) *Mailer {
+	if cfg.RetryCount == 0 {
+		cfg.RetryCount = 3
+	}
+	if cfg.RetryDelay == 0 {
+		cfg.RetryDelay = 2 * time.Second
+	}
+	if cfg.HTMLProcessor == nil {
+		cfg.HTMLProcessor = &DefaultHTMLProcessor{}
+	}
+
+	funcMap := render.MergeFuncMaps(cfg.TemplateFuncMap)
+
 	return &Mailer{
 		config:        cfg,
 		client:        client,
 		funcMap:       funcMap,
 		htmlProcessor: cfg.HTMLProcessor,
-	}, nil
+	}
 }
 
 // Config returns the mailer configuration
@@ -142,10 +137,10 @@ func (m *Mailer) Config() *Config {
 }
 
 // Send sends an email using the provided template and data
-func (m *Mailer) Send(msg *EmailMessage) error {
+func (m *Mailer) Send(msg *Message) error {
 	email := gomail.NewMsg()
 
-	if err := m.setAddresses(email, msg.To); err != nil {
+	if err := m.setAddresses(email, msg); err != nil {
 		return err
 	}
 
@@ -160,13 +155,37 @@ func (m *Mailer) Send(msg *EmailMessage) error {
 	return m.sendWithRetry(email)
 }
 
-func (m *Mailer) setAddresses(email *gomail.Msg, to []string) error {
+// setAddresses sets all address fields on the email
+func (m *Mailer) setAddresses(email *gomail.Msg, msg *Message) error {
+	// Set From address
 	if err := email.From(m.config.From); err != nil {
 		return fmt.Errorf("failed to set from address: %w", err)
 	}
 
-	if err := email.To(to...); err != nil {
+	// Set To addresses
+	if err := email.To(msg.To...); err != nil {
 		return fmt.Errorf("failed to set to addresses: %w", err)
+	}
+
+	// Set CC addresses if present
+	if len(msg.Cc) > 0 {
+		if err := email.Cc(msg.Cc...); err != nil {
+			return fmt.Errorf("failed to set cc addresses: %w", err)
+		}
+	}
+
+	// Set BCC addresses if present
+	if len(msg.Bcc) > 0 {
+		if err := email.Bcc(msg.Bcc...); err != nil {
+			return fmt.Errorf("failed to set bcc addresses: %w", err)
+		}
+	}
+
+	// Set Reply-To if present
+	if msg.ReplyTo != "" {
+		if err := email.ReplyTo(msg.ReplyTo); err != nil {
+			return fmt.Errorf("failed to set reply-to address: %w", err)
+		}
 	}
 
 	return nil
@@ -177,7 +196,7 @@ func (m *Mailer) NewTemplateData() TemplateData {
 	return NewTemplateData(m.config)
 }
 
-func (m *Mailer) processTemplates(email *gomail.Msg, msg *EmailMessage) error {
+func (m *Mailer) processTemplates(email *gomail.Msg, msg *Message) error {
 	templatePath := msg.Templates
 	if m.config.TemplatePath != "" {
 		// For each template, we need to prepend the template path
@@ -188,13 +207,24 @@ func (m *Mailer) processTemplates(email *gomail.Msg, msg *EmailMessage) error {
 
 	tmpl, err := template.New("").Funcs(m.funcMap).ParseFS(m.config.TemplateFS, templatePath...)
 	if err != nil {
-		return fmt.Errorf("failed to parse template: %w", err)
+		if templatePath == nil {
+			templatePath = []string{""}
+		}
+		return &TemplateError{
+			TemplateName: templatePath[0],
+			OriginalErr:  err,
+			Phase:        "parse",
+		}
 	}
 
 	// Process subject
 	subject, err := m.executeTemplate(tmpl, "subject", msg.TemplateData)
 	if err != nil {
-		return fmt.Errorf("failed to execute subject template: %w", err)
+		return &TemplateError{
+			TemplateName: "subject",
+			OriginalErr:  err,
+			Phase:        "execute",
+		}
 	}
 	if subject.Len() == 0 {
 		return ErrNoSubject
@@ -222,26 +252,44 @@ func (m *Mailer) executeTemplate(tmpl *template.Template, name string, data any)
 	return &buf, nil
 }
 
+// Template helper methods for Mailer
 func (m *Mailer) processBodies(tmpl *template.Template, data any) (*bytes.Buffer, *bytes.Buffer, error) {
+	// Execute plain body template
 	plainBody, err := m.executeTemplate(tmpl, "plainBody", data)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to execute plain body template: %w", err)
+		return nil, nil, &TemplateError{
+			TemplateName: "plainBody",
+			OriginalErr:  err,
+			Phase:        "execute",
+		}
 	}
 
+	// Execute HTML body template if it exists
 	var htmlBody *bytes.Buffer
 	if t := tmpl.Lookup("htmlBody"); t != nil {
 		htmlBuf, err := m.executeTemplate(tmpl, "htmlBody", data)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to execute HTML template: %w", err)
+			return nil, nil, &TemplateError{
+				TemplateName: "htmlBody",
+				OriginalErr:  err,
+				Phase:        "execute",
+			}
 		}
 
-		processed, err := m.htmlProcessor.Process(htmlBuf.String())
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to process HTML: %w", err)
+		// Process HTML if we have a processor
+		if m.htmlProcessor != nil {
+			processed, err := m.htmlProcessor.Process(htmlBuf.String())
+			if err != nil {
+				return nil, nil, &TemplateError{
+					TemplateName: "htmlBody",
+					OriginalErr:  err,
+					Phase:        "process",
+				}
+			}
+			htmlBody = bytes.NewBufferString(processed)
+		} else {
+			htmlBody = htmlBuf
 		}
-
-		htmlBody = &bytes.Buffer{}
-		htmlBody.WriteString(processed)
 	}
 
 	return plainBody, htmlBody, nil
@@ -265,11 +313,16 @@ func (m *Mailer) setBodies(email *gomail.Msg, plainBody, htmlBody *bytes.Buffer)
 
 func (m *Mailer) addAttachments(email *gomail.Msg, attachments []Attachment) error {
 	for _, att := range attachments {
-		if err := email.AttachReader(
-			att.Filename,
-			att.Data,
-			gomail.WithFileContentType(att.ContentType),
-		); err != nil {
+		var opts []gomail.FileOption
+		if att.ContentType != "" {
+			opts = append(opts, gomail.WithFileContentType(att.ContentType))
+		}
+
+		if att.Data == nil {
+			return fmt.Errorf("nil reader for attachment %s", att.Filename)
+		}
+
+		if err := email.AttachReader(att.Filename, att.Data, opts...); err != nil {
 			return fmt.Errorf("failed to attach file %s: %w", att.Filename, err)
 		}
 	}

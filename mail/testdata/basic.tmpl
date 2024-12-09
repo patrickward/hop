@@ -1,22 +1,23 @@
-// testdata/basic.tmpl
 {{define "subject"}}Test Email{{end}}
 
 {{define "plainBody"}}
-    Hello {{.Name}},
+    Hello {{.name}}!
 
     This is a test email.
 
-    Regards,
-    The Team
+    Best regards,
+    The Test Team
 {{end}}
 
 {{define "htmlBody"}}
-<!DOCTYPE html>
-<html>
-<body>
-    <h1>Hello {{.Name}}</h1>
+    <html>
+    <body>
+    <p>Hello {{.name}}!</p>
+
     <p>This is a test email.</p>
-    <p>Regards,<br>The Team</p>
-</body>
-</html>
+
+    <p>Best regards,<br>
+        The Test Team</p>
+    </body>
+    </html>
 {{end}}

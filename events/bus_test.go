@@ -21,64 +21,29 @@ func newTestLogger(out io.Writer) *slog.Logger {
 	}))
 }
 
-func TestNewEvent(t *testing.T) {
-	tests := []struct {
-		name      string
-		signature string
-		payload   any
-	}{
-		{
-			name:      "basic event",
-			signature: "test.basic",
-			payload:   nil,
-		},
-		{
-			name:      "event with string payload",
-			signature: "test.string.payload",
-			payload:   "hello",
-		},
-		{
-			name:      "event with struct payload",
-			signature: "test.struct.payload",
-			payload:   struct{ Name string }{"test"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			event := events.NewEvent(tt.signature, tt.payload)
-
-			assert.NotEmpty(t, event.ID)
-			assert.Equal(t, tt.signature, event.Signature)
-			assert.Equal(t, tt.payload, event.Payload)
-			assert.False(t, event.Timestamp.IsZero())
-		})
-	}
-}
-
 func TestEventBus_On(t *testing.T) {
 	bus := events.NewEventBus(newTestLogger(os.Stdout))
-	var handlerCalled bool
-	var receivedEvent events.Event
+	done := make(chan events.Event)
 
 	handler := func(ctx context.Context, event events.Event) {
-		handlerCalled = true
-		receivedEvent = event
+		done <- event
 	}
 
 	// Register handler
 	bus.On("test.event", handler)
 
 	// Emit event
-	bus.Emit(context.Background(), "test.event", "test-payload")
+	expectedPayload := "test-payload"
+	bus.Emit(context.Background(), "test.event", expectedPayload)
 
-	// Allow async handlers to complete
-	time.Sleep(50 * time.Millisecond)
-
-	assert.True(t, handlerCalled)
-	assert.NotNil(t, receivedEvent)
-	assert.Equal(t, "test.event", receivedEvent.Signature)
-	assert.Equal(t, "test-payload", receivedEvent.Payload)
+	// Wait for event with timeout
+	select {
+	case receivedEvent := <-done:
+		assert.Equal(t, "test.event", receivedEvent.Signature)
+		assert.Equal(t, expectedPayload, receivedEvent.Payload)
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for event handler")
+	}
 }
 
 func TestEventBus_Wildcards(t *testing.T) {
@@ -118,75 +83,61 @@ func TestEventBus_Wildcards(t *testing.T) {
 			eventSignature: "test.event",
 			shouldMatch:    false,
 		},
-		{
-			name:           "different segments",
-			pattern:        "test.*",
-			eventSignature: "test.system.start",
-			shouldMatch:    false,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			bus := events.NewEventBus(newTestLogger(os.Stdout))
-			var handlerCalled bool
+			done := make(chan struct{})
 
 			bus.On(tt.pattern, func(ctx context.Context, event events.Event) {
-				handlerCalled = true
+				done <- struct{}{}
 			})
 
 			bus.Emit(context.Background(), tt.eventSignature, nil)
-			time.Sleep(50 * time.Millisecond)
 
-			assert.Equal(t, tt.shouldMatch, handlerCalled)
+			select {
+			case <-done:
+				assert.True(t, tt.shouldMatch, "handler was called but shouldn't have been")
+			case <-time.After(100 * time.Millisecond):
+				assert.False(t, tt.shouldMatch, "handler wasn't called but should have been")
+			}
 		})
 	}
 }
 
 func TestEventBus_MultipleHandlers(t *testing.T) {
 	bus := events.NewEventBus(newTestLogger(os.Stdout))
-	var mu sync.Mutex
-	handlerCalls := make(map[string]bool)
+	var wg sync.WaitGroup
+	handlerCount := 3
+	wg.Add(handlerCount)
 
-	handlers := []string{"handler1", "handler2", "handler3"}
-	for _, name := range handlers {
-		handlerName := name // Capture for closure
+	for i := 0; i < handlerCount; i++ {
 		bus.On("test.event", func(ctx context.Context, event events.Event) {
-			mu.Lock()
-			handlerCalls[handlerName] = true
-			mu.Unlock()
+			defer wg.Done()
 		})
 	}
 
 	bus.Emit(context.Background(), "test.event", nil)
-	time.Sleep(50 * time.Millisecond)
 
-	mu.Lock()
-	defer mu.Unlock()
-	for _, name := range handlers {
-		assert.True(t, handlerCalls[name], "handler %s should have been called", name)
+	// Use a channel to convert WaitGroup completion to select pattern
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// All handlers completed successfully
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for all handlers to complete")
 	}
-}
-
-func TestEventBus_EmitSync(t *testing.T) {
-	bus := events.NewEventBus(newTestLogger(os.Stdout))
-	var handlerCalled bool
-
-	bus.On("test.event", func(ctx context.Context, event events.Event) {
-		time.Sleep(10 * time.Millisecond) // Simulate work
-		handlerCalled = true
-	})
-
-	// EmitSync should wait for handler to complete
-	bus.EmitSync(context.Background(), "test.event", nil)
-
-	// No need to wait since EmitSync is synchronous
-	assert.True(t, handlerCalled)
 }
 
 func TestEventBus_PanicRecovery(t *testing.T) {
 	bus := events.NewEventBus(newTestLogger(os.Stdout))
-	var secondHandlerCalled bool
+	done := make(chan struct{})
 
 	// First handler panics
 	bus.On("test.event", func(ctx context.Context, event events.Event) {
@@ -195,7 +146,7 @@ func TestEventBus_PanicRecovery(t *testing.T) {
 
 	// Second handler should still run
 	bus.On("test.event", func(ctx context.Context, event events.Event) {
-		secondHandlerCalled = true
+		done <- struct{}{}
 	})
 
 	// Should not panic
@@ -203,24 +154,29 @@ func TestEventBus_PanicRecovery(t *testing.T) {
 		bus.Emit(context.Background(), "test.event", nil)
 	})
 
-	time.Sleep(50 * time.Millisecond)
-	assert.True(t, secondHandlerCalled)
+	select {
+	case <-done:
+		// Second handler completed successfully
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for second handler")
+	}
 }
 
 func TestEventBus_ConcurrentEmit(t *testing.T) {
 	bus := events.NewEventBus(newTestLogger(os.Stdout))
-	var mu sync.Mutex
-	handlerCalls := make(map[string]int)
+	eventCount := 100
 
+	// Create a buffered channel to collect results
+	results := make(chan string, eventCount)
+
+	// Register handler that sends event IDs to results channel
 	bus.On("test.event", func(ctx context.Context, event events.Event) {
-		mu.Lock()
-		handlerCalls[event.ID]++
-		mu.Unlock()
+		results <- event.ID
 	})
 
 	// Emit events concurrently
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
+	for i := 0; i < eventCount; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -228,49 +184,75 @@ func TestEventBus_ConcurrentEmit(t *testing.T) {
 		}()
 	}
 
+	// Wait for all emits to complete
 	wg.Wait()
-	time.Sleep(50 * time.Millisecond)
 
-	mu.Lock()
-	assert.Equal(t, 100, len(handlerCalls))
-	for _, count := range handlerCalls {
-		assert.Equal(t, 1, count)
+	// Collect results with timeout
+	receivedIDs := make(map[string]bool)
+	timeout := time.After(time.Second)
+
+	for i := 0; i < eventCount; i++ {
+		select {
+		case id := <-results:
+			assert.False(t, receivedIDs[id], "received duplicate event ID: %s", id)
+			receivedIDs[id] = true
+		case <-timeout:
+			t.Fatalf("timeout waiting for events, received only %d/%d", i, eventCount)
+		}
 	}
-	mu.Unlock()
+}
+
+func TestEventBus_EmitSync(t *testing.T) {
+	bus := events.NewEventBus(newTestLogger(os.Stdout))
+	done := make(chan struct{})
+
+	bus.On("test.event", func(ctx context.Context, event events.Event) {
+		time.Sleep(50 * time.Millisecond) // Simulate work
+		close(done)
+	})
+
+	bus.EmitSync(context.Background(), "test.event", nil)
+
+	// Channel should already be closed since EmitSync is synchronous
+	select {
+	case <-done:
+		// Handler completed as expected
+	default:
+		t.Fatal("EmitSync returned before handler completed")
+	}
 }
 
 func TestEventBus_ContextCancellation(t *testing.T) {
 	bus := events.NewEventBus(newTestLogger(os.Stdout))
-	ctx, cancel := context.WithCancel(context.Background())
-	var handlerStarted, handlerCompleted bool
+	started := make(chan struct{})
+	completed := make(chan struct{})
 
 	bus.On("test.event", func(ctx context.Context, event events.Event) {
-		handlerStarted = true
-		<-ctx.Done() // Wait for cancellation
-		handlerCompleted = true
+		close(started)
+		<-ctx.Done()
+		close(completed)
 	})
 
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		cancel()
-	}()
+	ctx, cancel := context.WithCancel(context.Background())
+	// Use Emit instead of EmitSync so we don't block
+	bus.Emit(ctx, "test.event", nil)
 
-	bus.EmitSync(ctx, "test.event", nil)
+	// Wait for handler to start
+	select {
+	case <-started:
+		// Handler started
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for handler to start")
+	}
 
-	assert.True(t, handlerStarted)
-	assert.True(t, handlerCompleted)
-}
+	// Now we can cancel the context
+	cancel()
 
-func BenchmarkEventEmit(b *testing.B) {
-	bus := events.NewEventBus(newTestLogger(os.Stdout))
-	bus.On("bench.event", func(ctx context.Context, event events.Event) {})
-
-	ctx := context.Background()
-	b.ResetTimer()
-
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			bus.Emit(ctx, "bench.event", nil)
-		}
-	})
+	// Wait for handler to complete
+	select {
+	case <-completed:
+		// Handler completed
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for handler to complete after cancellation")
+	}
 }

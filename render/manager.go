@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+
+	"github.com/patrickward/hop/templates"
 )
 
 type Sources map[string]fs.FS
@@ -35,7 +37,7 @@ type TemplateManagerOptions struct {
 	// Extension is the file extension for the templates. Default is ".html".
 	Extension string
 
-	// Funcs is a map of functions to add to default set of template functions made available. See the `funcs.go` file for a list of default functions.
+	// Funcs is a map of functions to add to default set of template functions made available. See the `templates/funcmap` package for a list of default functions.
 	Funcs template.FuncMap
 
 	// Logger is the logger to use for logging errors. Default is nil.
@@ -47,7 +49,8 @@ type TemplateManagerOptions struct {
 // For sources, if the string key is empty or "-", it will be treated as the default file system. Otherwise, it will be prefixed to the template name.
 // e.g., "foo:bar" for a template named "bar" in the "foo" file system.
 func NewTemplateManager(sources Sources, opts TemplateManagerOptions) (*TemplateManager, error) {
-	funcMap := MergeFuncMaps(opts.Funcs)
+	//funcMap := MergeFuncMaps(opts.Funcs)
+	funcMap := templates.MergeFuncMaps(templates.FuncMap(), opts.Funcs)
 
 	// Set default extension if not provided
 	if opts.Extension == "" {

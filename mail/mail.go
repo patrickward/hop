@@ -12,7 +12,7 @@ import (
 
 	gomail "github.com/wneessen/go-mail"
 
-	"github.com/patrickward/hop/render"
+	"github.com/patrickward/hop/templates"
 )
 
 var (
@@ -121,7 +121,8 @@ func NewMailerWithClient(cfg *Config, client SMTPClient) *Mailer {
 		cfg.HTMLProcessor = &DefaultHTMLProcessor{}
 	}
 
-	funcMap := render.MergeFuncMaps(cfg.TemplateFuncMap)
+	//funcMap := render.MergeFuncMaps(cfg.TemplateFuncMap)
+	funcMap := templates.MergeFuncMaps(templates.FuncMap(), cfg.TemplateFuncMap)
 
 	return &Mailer{
 		config:        cfg,

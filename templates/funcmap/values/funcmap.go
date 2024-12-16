@@ -4,21 +4,9 @@ import "html/template"
 
 func FuncMap() template.FuncMap {
 	return template.FuncMap{
-		"val_yesno":    yesno,
-		"val_onoff":    onoff,
-		"val_coalesce": coalesce,
+		"val_yesno": yesno,
+		"val_onoff": onoff,
 	}
-}
-
-// coalesce returns the first non-empty value
-func coalesce(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
-	}
-
-	return ""
 }
 
 // yesno returns "Yes" or "No" based on the boolean value

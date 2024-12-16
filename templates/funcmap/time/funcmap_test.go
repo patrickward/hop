@@ -9,6 +9,37 @@ import (
 	hopTime "github.com/patrickward/hop/templates/funcmap/time"
 )
 
+func TestTimeAgo(t *testing.T) {
+	now := time.Now()
+	tests := []struct {
+		input    time.Time
+		expected string
+	}{
+		{now.Add(-time.Second), "1 second ago"},
+		{now.Add(-time.Second * 2), "2 seconds ago"},
+		{now.Add(-time.Minute), "1 minute ago"},
+		{now.Add(-time.Minute * 2), "2 minutes ago"},
+		{now.Add(-time.Hour), "1 hour ago"},
+		{now.Add(-time.Hour * 2), "2 hours ago"},
+		{now.Add(-time.Hour * 24), "1 day ago"},
+		{now.Add(-time.Hour * 24 * 2), "2 days ago"},
+		{now.Add(-time.Hour * 24 * 7), "1 week ago"},
+		{now.Add(-time.Hour * 24 * 7 * 2), "2 weeks ago"},
+		{now.Add(-time.Hour * 24 * 30), "1 month ago"},
+		{now.Add(-time.Hour * 24 * 30 * 2), "2 months ago"},
+		{now.Add(-time.Hour * 24 * 365), "1 year ago"},
+		{now.Add(-time.Hour * 24 * 365 * 2), "2 years ago"},
+		{now.Add(time.Second), "in the future"},
+		{now, "just now"},
+		{time.Time{}, ""},
+	}
+
+	for _, tt := range tests {
+		result := hopTime.FuncMap()["time_ago"].(func(time.Time) string)(tt.input)
+		assert.Equal(t, tt.expected, result)
+	}
+}
+
 func TestFormatTime(t *testing.T) {
 	tests := []struct {
 		format   string
@@ -37,29 +68,6 @@ func TestIsToday(t *testing.T) {
 
 	for _, tt := range tests {
 		result := hopTime.FuncMap()["time_isToday"].(func(time.Time) bool)(tt.input)
-		assert.Equal(t, tt.expected, result)
-	}
-}
-
-func TestApproximateDuration(t *testing.T) {
-	tests := []struct {
-		input    time.Duration
-		expected string
-	}{
-		{time.Second, "1 second"},
-		{2 * time.Second, "2 seconds"},
-		{time.Minute, "1 minute"},
-		{2 * time.Minute, "2 minutes"},
-		{time.Hour, "1 hour"},
-		{2 * time.Hour, "2 hours"},
-		{24 * time.Hour, "1 day"},
-		{48 * time.Hour, "2 days"},
-		{365 * 24 * time.Hour, "1 year"},
-		{2 * 365 * 24 * time.Hour, "2 years"},
-	}
-
-	for _, tt := range tests {
-		result := hopTime.FuncMap()["time_duration"].(func(time.Duration) string)(tt.input)
 		assert.Equal(t, tt.expected, result)
 	}
 }

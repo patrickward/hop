@@ -8,23 +8,6 @@ import (
 	"github.com/patrickward/hop/templates/funcmap/values"
 )
 
-func TestCoalesce(t *testing.T) {
-	tests := []struct {
-		input    []string
-		expected string
-	}{
-		{[]string{"", "", "first", "second"}, "first"},
-		{[]string{"", "first", "second"}, "first"},
-		{[]string{"first", "second"}, "first"},
-		{[]string{"", ""}, ""},
-	}
-
-	for _, tt := range tests {
-		result := values.FuncMap()["val_coalesce"].(func(...string) string)(tt.input...)
-		assert.Equal(t, tt.expected, result)
-	}
-}
-
 func TestYesNo(t *testing.T) {
 	tests := []struct {
 		input    bool

@@ -18,6 +18,7 @@ func FuncMap() template.FuncMap {
 		"slc_reverse": Reverse, // Reverse sort a slice
 		"slc_sort":    Sort,    // Sort any slice
 		"slc_unique":  Unique,  // Get unique elements
+
 	}
 }
 

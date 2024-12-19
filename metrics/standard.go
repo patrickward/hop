@@ -312,7 +312,7 @@ func (c *StandardCollector) checkMemoryMetrics() map[string]MemoryStatus {
 
 	// Check memory growth
 	memGrowthStatus := MemoryStatus{
-		Level:     ThresholdInfo,
+		Level:     ThresholdOK,
 		Current:   growthPercent,
 		Threshold: c.thresholds.MemoryGrowthRatePercent,
 		Reason:    fmt.Sprintf("%.1f%% per minute", growthPercent),
@@ -328,7 +328,7 @@ func (c *StandardCollector) checkMemoryMetrics() map[string]MemoryStatus {
 	// Check GC metrics
 	gcPauseMs := float64(ms.PauseNs[(ms.NumGC+255)%256]) / 1e6 // Convert ns to ms
 	gcPauseStatus := MemoryStatus{
-		Level:     ThresholdInfo,
+		Level:     ThresholdOK,
 		Current:   gcPauseMs,
 		Threshold: c.thresholds.GCPauseMs,
 		Reason:    fmt.Sprintf("%.2fms", gcPauseMs),
@@ -344,7 +344,7 @@ func (c *StandardCollector) checkMemoryMetrics() map[string]MemoryStatus {
 	// Calculate GC frequency (per minute)
 	gcFrequency := float64(ms.NumGC) / time.Since(c.startTime).Minutes()
 	gcFrequencyStatus := MemoryStatus{
-		Level:     ThresholdInfo,
+		Level:     ThresholdOK,
 		Current:   gcFrequency,
 		Threshold: c.thresholds.MaxGCFrequency,
 		Reason:    fmt.Sprintf("%.1f/minute", gcFrequency),

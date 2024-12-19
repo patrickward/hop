@@ -623,7 +623,7 @@ func calculateErrorLevel(rate, threshold float64) ThresholdLevel {
 	} else if rate >= threshold*0.5 {
 		return ThresholdWarning
 	}
-	return ThresholdInfo
+	return ThresholdOK
 }
 
 func (c *StandardCollector) formatHTTPMetrics() []metricData {
@@ -645,14 +645,6 @@ func (c *StandardCollector) formatHTTPMetrics() []metricData {
 	// Calculate request rates
 	recentRate := c.recentRequests.Value()
 	overallRate := float64(reqCount) / time.Since(c.startTime).Seconds()
-
-	//// Determine status levels
-	//errorLevel := ThresholdOK
-	//if serverErrorRate >= c.thresholds.ServerErrorRatePercent {
-	//	errorLevel = ThresholdCritical
-	//} else if serverErrorRate >= c.thresholds.ServerErrorRatePercent*0.5 {
-	//	errorLevel = ThresholdWarning
-	//}
 
 	return []metricData{
 		{

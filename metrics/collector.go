@@ -33,9 +33,6 @@ type Collector interface {
 
 	// Handler returns an http.Handler for the metrics endpoint
 	Handler() http.Handler
-
-	// HandlerJSON returns an http.Handler for the raw JSON metrics endpoint
-	HandlerJSON() http.Handler
 }
 
 // Counter is for cumulative metrics that only increase

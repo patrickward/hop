@@ -63,7 +63,6 @@ func (m *Module) RegisterRoutes(router *route.Mux) {
 	// Register metrics endpoint
 	fmt.Println("Registering metrics endpoint: ", m.config.MetricsPath)
 	router.Get(m.config.MetricsPath, m.collector.Handler())
-	router.Get(m.config.MetricsPath+".json", m.collector.HandlerJSON())
 
 	// Optionally register pprof endpoints
 	if m.config.EnablePprof {

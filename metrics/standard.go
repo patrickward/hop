@@ -2,11 +2,53 @@ package metrics
 
 import (
 	"expvar"
+	"fmt"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
+
+// ThresholdLevel is an enumeration of threshold levels
+type ThresholdLevel int
+
+const (
+	// ThresholdInfo indicates a threshold is informational
+	ThresholdInfo ThresholdLevel = iota
+	// ThresholdOK indicates a threshold is within acceptable limits
+	ThresholdOK
+	// ThresholdWarning indicates a threshold is approaching a warning level
+	ThresholdWarning
+	// ThresholdCritical indicates a threshold has exceeded a critical level
+	ThresholdCritical
+)
+
+// Thresholds configuration
+type Thresholds struct {
+	CPUPercent              float64 // CPU usage percentage
+	ClientErrorRatePercent  float64 // Higher threshold for 4xx errors
+	DiskPercent             float64 // Percentage of disk space used
+	GCPauseMs               float64 // Warning when GC pauses exceed this duration
+	GoroutineCount          int     // Number of goroutines
+	MaxGCFrequency          float64 // Warning when GC runs too frequently (times per minute)
+	MemoryGrowthRatePercent float64 // Warning when memory grows too fast (percent per minute)
+	MemoryPercent           float64 // Percentage of total memory used
+	ServerErrorRatePercent  float64 // Lower threshold for 5xx errors
+}
+
+// DefaultThresholds provides default threshold values
+var DefaultThresholds = Thresholds{
+	CPUPercent:              75.0,  // Warning at 75% CPU usage
+	ClientErrorRatePercent:  40.0,  // Allow higher rate for client errors
+	DiskPercent:             85.0,  // Warning at 85% disk usage
+	GCPauseMs:               100.0, // 100ms pause time might affect responsiveness
+	GoroutineCount:          1000,  // Warning at 1000 goroutines
+	MaxGCFrequency:          100.0, // More than 100 GCs per minute might indicate pressure
+	MemoryGrowthRatePercent: 20.0,  // 20% growth per minute might indicate a leak
+	MemoryPercent:           80.0,  // Warning at 80% memory usage
+	ServerErrorRatePercent:  1.0,   // Very low tolerance for server errors
+}
 
 // StandardCollector implements Collector using the standard library
 type StandardCollector struct {
@@ -18,16 +60,30 @@ type StandardCollector struct {
 	histograms map[string]*standardHistogram
 
 	// Pre-allocated metrics for performance
-	httpRequests  *standardCounter
-	httpDurations *standardHistogram
-	httpErrors    *standardCounter
+	httpRequests     *standardCounter
+	httpDurations    *standardHistogram
+	httpServerErrors *standardCounter
+	httpClientErrors *standardCounter
 
 	// System metrics
 	goroutines *standardGauge
-	memAlloc   *standardGauge
-	memTotal   *standardGauge
-	memSys     *standardGauge
-	gcPauses   *standardHistogram
+	//memAlloc   *standardGauge
+	//memTotal   *standardGauge
+	//memSys     *standardGauge
+	gcPauses *standardHistogram
+
+	// Enhanced memory metrics
+	heapInuse    *standardGauge
+	heapSys      *standardGauge
+	heapIdle     *standardGauge
+	heapReleased *standardGauge
+
+	// Track memory growth rates
+	lastHeapStats struct {
+		timestamp time.Time
+		heapInuse float64
+	}
+	heapGrowthRate *standardGauge // bytes/second
 
 	// CPU metrics
 	cpuUser   *standardGauge // User CPU time
@@ -43,6 +99,14 @@ type StandardCollector struct {
 	lastCPUStats  *syscall.Rusage   // Last CPU stats for delta calculation
 	lastDiskStats *syscall.Statfs_t // Last disk stats for delta calculation
 	lastStatsTime time.Time
+
+	// Thresholds for alerting
+	thresholds Thresholds
+
+	responseTimeTracker *responseTimeTracker
+	recentRequests      *standardGauge // Requests in last minute
+	requestsLastMinute  uint64         // For rate calculation
+	lastMinuteCheck     time.Time
 }
 
 // StandardCollectorOption is a functional option for configuring a StandardCollector
@@ -55,16 +119,25 @@ func WithServerName(name string) StandardCollectorOption {
 	}
 }
 
+// WithThresholds sets the alert thresholds for the collector
+func WithThresholds(thresholds Thresholds) StandardCollectorOption {
+	return func(c *StandardCollector) {
+		c.thresholds = thresholds
+	}
+}
+
 // NewStandardCollector creates a new StandardCollector
 func NewStandardCollector(opts ...StandardCollectorOption) *StandardCollector {
 	c := &StandardCollector{
-		serverName: "HOP Server",
-		startTime:  time.Now(),
-		counters:   make(map[string]*standardCounter),
-		gauges:     make(map[string]*standardGauge),
-		histograms: make(map[string]*standardHistogram),
-
-		lastStatsTime: time.Now(),
+		serverName:          "HOP Server",
+		startTime:           time.Now(),
+		counters:            make(map[string]*standardCounter),
+		gauges:              make(map[string]*standardGauge),
+		histograms:          make(map[string]*standardHistogram),
+		thresholds:          DefaultThresholds,
+		lastStatsTime:       time.Now(),
+		responseTimeTracker: newResponseTimeTracker(1000), // Keep last 1000 samples
+		lastMinuteCheck:     time.Now(),
 	}
 
 	// Apply options
@@ -86,13 +159,22 @@ func NewStandardCollector(opts ...StandardCollectorOption) *StandardCollector {
 	// Initialize common metrics
 	c.httpRequests = c.getOrCreateCounter("http_requests_total")
 	c.httpDurations = c.getOrCreateHistogram("http_request_duration_ms")
-	c.httpErrors = c.getOrCreateCounter("http_errors_total")
+	c.httpServerErrors = c.getOrCreateCounter("http_errors_total")
+	c.httpClientErrors = c.getOrCreateCounter("http_client_errors_total")
 
 	c.goroutines = c.getOrCreateGauge("goroutines")
-	c.memAlloc = c.getOrCreateGauge("memory_alloc_bytes")
-	c.memTotal = c.getOrCreateGauge("memory_total_bytes")
-	c.memSys = c.getOrCreateGauge("memory_sys_bytes")
+	//c.memAlloc = c.getOrCreateGauge("memory_alloc_bytes")
+	//c.memTotal = c.getOrCreateGauge("memory_total_bytes")
+	//c.memSys = c.getOrCreateGauge("memory_sys_bytes")
 	c.gcPauses = c.getOrCreateHistogram("gc_pause_ms")
+
+	c.heapInuse = c.getOrCreateGauge("memory_heap_inuse_bytes")
+	c.heapSys = c.getOrCreateGauge("memory_heap_sys_bytes")
+	c.heapIdle = c.getOrCreateGauge("memory_heap_idle_bytes")
+	c.heapReleased = c.getOrCreateGauge("memory_heap_released_bytes")
+	c.heapGrowthRate = c.getOrCreateGauge("memory_heap_growth_rate_bytes_per_sec")
+
+	c.recentRequests = c.getOrCreateGauge("http_requests_last_minute")
 
 	// Get initial stats
 	c.lastCPUStats = &syscall.Rusage{}
@@ -180,10 +262,102 @@ func (c *StandardCollector) RecordMemStats() {
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
 
-	c.memAlloc.Set(float64(ms.Alloc))
-	c.memTotal.Set(float64(ms.TotalAlloc))
-	c.memSys.Set(float64(ms.Sys))
+	//c.memAlloc.Set(float64(ms.Alloc))
+	//c.memTotal.Set(float64(ms.TotalAlloc))
+	//c.memSys.Set(float64(ms.Sys))
 	c.gcPauses.Observe(float64(ms.PauseNs[(ms.NumGC+255)%256]) / 1e6) // Convert to milliseconds
+
+	// Update enhanced metrics
+	c.heapInuse.Set(float64(ms.HeapInuse))
+	c.heapSys.Set(float64(ms.HeapSys))
+	c.heapIdle.Set(float64(ms.HeapIdle))
+	c.heapReleased.Set(float64(ms.HeapReleased))
+
+	// Calculate heap growth rate
+	now := time.Now()
+	if !c.lastHeapStats.timestamp.IsZero() {
+		duration := now.Sub(c.lastHeapStats.timestamp).Seconds()
+		if duration > 0 {
+			growthRate := (float64(ms.HeapInuse) - c.lastHeapStats.heapInuse) / duration
+			c.heapGrowthRate.Set(growthRate)
+		}
+	}
+
+	// Update last stats
+	c.lastHeapStats.timestamp = now
+	c.lastHeapStats.heapInuse = float64(ms.HeapInuse)
+}
+
+// MemoryStatus represents the status of a specific memory metric
+type MemoryStatus struct {
+	Level     ThresholdLevel
+	Reason    string
+	Current   float64
+	Threshold float64
+	TrendInfo string // Additional information about trends
+}
+
+// checkMemoryThresholds evaluates memory usage against configured thresholds
+func (c *StandardCollector) checkMemoryMetrics() map[string]MemoryStatus {
+	status := make(map[string]MemoryStatus)
+	status["memory_growth"] = MemoryStatus{}
+	status["gc_pause"] = MemoryStatus{}
+
+	var ms runtime.MemStats
+	runtime.ReadMemStats(&ms)
+
+	// Calculate memory growth rate (bytes per minute)
+	memoryGrowthRate := c.heapGrowthRate.Value() * 60 // Convert per second to per minute
+	growthPercent := (memoryGrowthRate / float64(ms.Sys)) * 100
+
+	// Check memory growth
+	memGrowthStatus := MemoryStatus{
+		Level:     ThresholdInfo,
+		Current:   growthPercent,
+		Threshold: c.thresholds.MemoryGrowthRatePercent,
+		Reason:    fmt.Sprintf("%.1f%% per minute", growthPercent),
+	}
+
+	if growthPercent > c.thresholds.MemoryGrowthRatePercent {
+		memGrowthStatus.Level = ThresholdWarning
+		memGrowthStatus.Reason = fmt.Sprintf("Memory growing at %.1f%% per minute", growthPercent)
+	}
+
+	status["memory_growth"] = memGrowthStatus
+
+	// Check GC metrics
+	gcPauseMs := float64(ms.PauseNs[(ms.NumGC+255)%256]) / 1e6 // Convert ns to ms
+	gcPauseStatus := MemoryStatus{
+		Level:     ThresholdInfo,
+		Current:   gcPauseMs,
+		Threshold: c.thresholds.GCPauseMs,
+		Reason:    fmt.Sprintf("%.2fms", gcPauseMs),
+	}
+
+	if gcPauseMs > c.thresholds.GCPauseMs {
+		gcPauseStatus.Level = ThresholdWarning
+		gcPauseStatus.Reason = fmt.Sprintf("GC pause of %.2fms exceeds threshold", gcPauseMs)
+	}
+
+	status["gc_pause"] = gcPauseStatus
+
+	// Calculate GC frequency (per minute)
+	gcFrequency := float64(ms.NumGC) / time.Since(c.startTime).Minutes()
+	gcFrequencyStatus := MemoryStatus{
+		Level:     ThresholdInfo,
+		Current:   gcFrequency,
+		Threshold: c.thresholds.MaxGCFrequency,
+		Reason:    fmt.Sprintf("%.1f/minute", gcFrequency),
+	}
+
+	if gcFrequency > c.thresholds.MaxGCFrequency {
+		gcFrequencyStatus.Level = ThresholdWarning
+		gcFrequencyStatus.Reason = fmt.Sprintf("High GC frequency: %.1f/minute", gcFrequency)
+	}
+
+	status["gc_frequency"] = gcFrequencyStatus
+
+	return status
 }
 
 // RecordGoroutineCount captures the number of goroutines
@@ -195,10 +369,27 @@ func (c *StandardCollector) RecordGoroutineCount() {
 func (c *StandardCollector) RecordHTTPRequest(method, path string, duration time.Duration, statusCode int) {
 	c.httpRequests.Inc()
 	c.httpDurations.Observe(float64(duration.Milliseconds()))
+	c.responseTimeTracker.Record(float64(duration.Milliseconds()))
 
-	if statusCode >= 400 {
-		c.httpErrors.Inc()
+	// Update error count if status >= 400
+	if statusCode >= 500 {
+		c.httpServerErrors.Inc()
+	} else if statusCode >= 400 {
+		c.httpClientErrors.Inc()
 	}
+
+	// Update recent requests
+	atomic.AddUint64(&c.requestsLastMinute, 1)
+
+	// Update per-minute stats if needed
+	now := time.Now()
+	c.mu.Lock()
+	if now.Sub(c.lastMinuteCheck) >= time.Minute {
+		count := atomic.SwapUint64(&c.requestsLastMinute, 0)
+		c.recentRequests.Set(float64(count))
+		c.lastMinuteCheck = now
+	}
+	c.mu.Unlock()
 }
 
 // RecordCPUStats collects CPU usage statistics

@@ -28,7 +28,7 @@ var metricsHTML = `
         .metric:last-child { border-bottom: none; }
         .metric-name { font-weight: bold; color: #4a5568; }
         .metric-value { font-family: monospace; color: #2b6cb0; }
-        .metric-desc { display: block; margin-top: 0.25rem; color: #718096; font-size: 0.875rem; }
+        .metric-desc { display: block; margin-top: 0.25rem; color: #718096; font-size: 0.875rem; max-width: 500px; }
         .timestamp { color: #718096; font-size: 0.875rem; }
         .raw-link { float: right; color: #4a5568; text-decoration: none; }
         .raw-link:hover { text-decoration: underline; }
@@ -66,13 +66,53 @@ var metricsHTML = `
             border: 1px solid #e5e7eb;
             border-radius: 0.25rem;
         }
+
+		@media (max-width: 480px) {
+			.refresh-control {
+				flex-direction: column;
+			}
+		}
+
         @media (max-width: 768px) {
             .refresh-control {
                 position: static;
                 margin-bottom: 1rem;
             }
         }
-    </style>
+
+        .metric-value {
+            font-family: monospace;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.25rem;
+        }
+        
+		/* blue info level */
+	    .level-0 .metric-value {
+			color: #2b6cb0;
+			background: #ebf8ff;
+		}
+
+        .level-1 .metric-value {
+            color: #057a55;
+            background: #def7ec;
+        }
+        
+        .level-2 .metric-value {
+            color: #c27803;
+            background: #fdf6b2;
+        }
+        
+        .level-3 .metric-value {
+            color: #e02424;
+            background: #fde8e8;
+        }
+        
+        .threshold-info {
+            font-size: 0.8rem;
+            color: #6b7280;
+            margin-left: 0.5rem;
+        }
+	</style>
     <script>
         let autoRefreshInterval = null;
         
@@ -144,18 +184,19 @@ var metricsHTML = `
         <button id="autoRefreshButton" class="refresh-button" onclick="toggleAutoRefresh()">
             Start Auto-refresh
         </button>
+		<a href="?format=json" class="raw-link">View Raw JSON</a>
     </div>
 
-	<a href="?format=json" class="raw-link">View Raw JSON</a>
     <h1>System Metrics</h1>
     <div class="timestamp">Last Updated: {{.Timestamp}}</div>
 
 <div class="metric-group">
         <h2>HTTP Metrics</h2>
         {{range .HTTPMetrics}}
-        <div class="metric">
+        <div class="metric level-{{.Level}}">
             <span class="metric-name">{{.Name}}:</span>
             <span class="metric-value">{{.Value}}</span>
+			{{if .Threshold}}<span class="threshold-info">Threshold: {{.Threshold}}</span>{{end}}
             <span class="metric-desc">{{.Description}}</span>
         </div>
         {{end}}
@@ -164,9 +205,11 @@ var metricsHTML = `
     <div class="metric-group">
         <h2>Memory Metrics</h2>
         {{range .MemoryMetrics}}
-        <div class="metric">
+        <div class="metric level-{{.Level}}">
             <span class="metric-name">{{.Name}}:</span>
             <span class="metric-value">{{.Value}}</span>
+			{{if .Threshold}}<span class="threshold-info">Threshold: {{.Threshold}}</span>{{end}}
+			{{if .Reason}}<span class="threshold-info">Reason: {{.Reason}}</span>{{end}}
             <span class="metric-desc">{{.Description}}</span>
         </div>
         {{end}}
@@ -175,9 +218,10 @@ var metricsHTML = `
     <div class="metric-group">
         <h2>Runtime Metrics</h2>
         {{range .RuntimeMetrics}}
-        <div class="metric">
+        <div class="metric level-{{.Level}}">
             <span class="metric-name">{{.Name}}:</span>
             <span class="metric-value">{{.Value}}</span>
+			{{if .Threshold}}<span class="threshold-info">Threshold: {{.Threshold}}</span>{{end}}
             <span class="metric-desc">{{.Description}}</span>
         </div>
         {{end}}
@@ -186,9 +230,10 @@ var metricsHTML = `
     <div class="metric-group">
         <h2>CPU Metrics</h2>
         {{range .CPUMetrics}}
-        <div class="metric">
+        <div class="metric level-{{.Level}}">
             <span class="metric-name">{{.Name}}:</span>
             <span class="metric-value">{{.Value}}</span>
+			{{if .Threshold}}<span class="threshold-info">Threshold: {{.Threshold}}</span>{{end}}
             <span class="metric-desc">{{.Description}}</span>
         </div>
         {{end}}
@@ -197,9 +242,10 @@ var metricsHTML = `
     <div class="metric-group">
         <h2>Disk I/O Metrics</h2>
         {{range .DiskMetrics}}
-        <div class="metric">
+        <div class="metric level-{{.Level}}">
             <span class="metric-name">{{.Name}}:</span>
             <span class="metric-value">{{.Value}}</span>
+			{{if .Threshold}}<span class="threshold-info">Threshold: {{.Threshold}}</span>{{end}}
             <span class="metric-desc">{{.Description}}</span>
         </div>
         {{end}}
@@ -209,9 +255,10 @@ var metricsHTML = `
     <div class="metric-group">
         <h2>Custom Metrics</h2>
         {{range .CustomMetrics}}
-        <div class="metric">
+        <div class="metric level-{{.Level}}">
             <span class="metric-name">{{.Name}}:</span>
             <span class="metric-value">{{.Value}}</span>
+			{{if .Threshold}}<span class="threshold-info">Threshold: {{.Threshold}}</span>{{end}}
             <span class="metric-desc">{{.Description}}</span>
         </div>
         {{end}}
@@ -226,6 +273,9 @@ type metricData struct {
 	Name        string
 	Value       string
 	Description string
+	Level       ThresholdLevel
+	Threshold   string
+	Reason      string
 }
 
 type presentedMetrics struct {
@@ -237,11 +287,6 @@ type presentedMetrics struct {
 	CustomMetrics  []metricData
 	CPUMetrics     []metricData
 	DiskMetrics    []metricData
-}
-
-// HandlerJSON returns an http.Handler for the raw JSON metrics endpoint
-func (c *StandardCollector) HandlerJSON() http.Handler {
-	return expvar.Handler()
 }
 
 // Handler returns an http.Handler for the metrics endpoint as an HTML page
@@ -269,69 +314,100 @@ func (c *StandardCollector) Handler() http.Handler {
 			Timestamp:  time.Now().Format("2006-01-02 15:04:05 MST"),
 		}
 
-		// HTTP Metrics
-		reqCount := c.httpRequests.Value()
-		errCount := c.httpErrors.Value()
-		errRate := 0.0
-		if reqCount > 0 {
-			errRate = (errCount / reqCount) * 100
-		}
-		avgDuration := 0.0
-		if c.httpDurations.Count() > 0 {
-			avgDuration = c.httpDurations.Sum() / float64(c.httpDurations.Count())
-		}
+		//// HTTP Metrics
+		//reqCount := c.httpRequests.Value()
+		//errCount := c.httpServerErrors.Value()
+		//errRate := 0.0
+		//if reqCount > 0 {
+		//	errRate = (errCount / reqCount) * 100
+		//}
+		//avgDuration := 0.0
+		//if c.httpDurations.Count() > 0 {
+		//	avgDuration = c.httpDurations.Sum() / float64(c.httpDurations.Count())
+		//}
+		//
+		//errorLevel := ThresholdOK
+		//if errRate >= c.thresholds.ErrorRatePercent {
+		//	errorLevel = ThresholdCritical
+		//} else if errRate >= c.thresholds.ErrorRatePercent*0.5 {
+		//	errorLevel = ThresholdWarning
+		//}
 
-		data.HTTPMetrics = []metricData{
-			{
-				Name:        "Total Requests",
-				Value:       formatCount(reqCount),
-				Description: "Total number of HTTP requests processed",
-			},
-			{
-				Name:        "Error Count",
-				Value:       formatCount(errCount),
-				Description: fmt.Sprintf("Number of requests resulting in errors (%.1f%% error rate)", errRate),
-			},
-			{
-				Name:        "Average Response Time",
-				Value:       formatDuration(avgDuration),
-				Description: "Average time to process HTTP requests",
-			},
-			{
-				Name:        "Requests/Second",
-				Value:       fmt.Sprintf("%.2f", float64(reqCount)/time.Since(c.startTime).Seconds()),
-				Description: "Average number of requests per second since server start",
-			},
-		}
+		//data.HTTPMetrics = []metricData{
+		//	{
+		//		Name:        "Total Requests",
+		//		Value:       formatCount(reqCount),
+		//		Description: "Total number of HTTP requests processed since startup. Useful for understanding overall traffic patterns and calculating error rates. A sudden drop might indicate connectivity issues.",
+		//		Level:       ThresholdInfo,
+		//	},
+		//	{
+		//		Name:        "Error Count",
+		//		Value:       formatCount(errCount),
+		//		Description: fmt.Sprintf("Number of requests resulting in HTTP status codes >= 400 (%.1f%% error rate). Includes client errors (4xx) and server errors (5xx). Sustained high error rates might indicate application issues, bad client requests, or system problems.", errRate),
+		//		Level:       errorLevel,
+		//		Threshold:   fmt.Sprintf("%.1f%%", c.thresholds.ErrorRatePercent),
+		//	},
+		//	{
+		//		Name:        "Average Response Time",
+		//		Value:       formatDuration(avgDuration),
+		//		Description: "Average time to process HTTP requests from receipt to response. Includes application processing time, database queries, and external service calls. Increasing response times might indicate performance bottlenecks or resource constraints.",
+		//		Level:       ThresholdInfo,
+		//	},
+		//	{
+		//		Name:        "Requests/Second",
+		//		Value:       fmt.Sprintf("%.2f", float64(reqCount)/time.Since(c.startTime).Seconds()),
+		//		Description: "Average request throughput since server start. Useful for capacity planning and load balancing. Compare with historical patterns to identify unusual traffic patterns.",
+		//		Level:       ThresholdInfo,
+		//	},
+		//}
+		data.HTTPMetrics = c.formatHTTPMetrics()
 
 		// Memory Metrics
-		data.MemoryMetrics = []metricData{
-			{
-				Name:        "Allocated Memory",
-				Value:       formatBytes(c.memAlloc.Value()),
-				Description: "Currently allocated memory in use",
-			},
-			{
-				Name:        "Total Allocated",
-				Value:       formatBytes(c.memTotal.Value()),
-				Description: "Cumulative memory allocated since server start",
-			},
-			{
-				Name:        "System Memory",
-				Value:       formatBytes(c.memSys.Value()),
-				Description: "Total memory obtained from the OS",
-			},
-			{
-				Name:        "Heap Objects",
-				Value:       formatCount(float64(ms.HeapObjects)),
-				Description: "Number of allocated heap objects",
-			},
-			{
-				Name:        "GC Cycles",
-				Value:       formatCount(float64(ms.NumGC)),
-				Description: "Number of completed garbage collection cycles",
-			},
-		}
+		//memUsed := c.memAlloc.Value()
+		//memTotal := c.memSys.Value()
+		//memPercent := (memUsed / memTotal) * 100
+		//memLevel := ThresholdOK
+		//if memPercent >= c.thresholds.MemoryPercent {
+		//	memLevel = ThresholdCritical
+		//} else if memPercent >= c.thresholds.MemoryPercent*0.8 {
+		//	memLevel = ThresholdWarning
+		//}
+		//
+		//data.MemoryMetrics = []metricData{
+		//	{
+		//		Name:        "Allocated Memory",
+		//		Value:       formatBytes(c.memAlloc.Value()),
+		//		Description: "Current heap memory actively allocated by the application that hasn't been freed. Lower than System Memory because it only includes live objects in the heap.",
+		//		Level:       memLevel,
+		//		Threshold:   fmt.Sprintf("%.1f%%", c.thresholds.MemoryPercent),
+		//	},
+		//	{
+		//		Name:        "Total Allocated",
+		//		Value:       formatBytes(c.memTotal.Value()),
+		//		Description: "Cumulative memory allocated since start. This includes both currently allocated memory and memory that has been freed - useful for understanding memory allocation patterns over time. Unlike Allocated Memory, this never decreases. Useful for understanding the total memory throughput of your application over time.",
+		//		Level:       ThresholdInfo,
+		//	},
+		//	{
+		//		Name:        "System Memory",
+		//		Value:       formatBytes(c.memSys.Value()),
+		//		Description: "Total memory obtained from the operating system by the Go runtime, including heap, stack, memory for goroutines, and other runtime structures. This is the actual memory footprint of your application.",
+		//		Level:       ThresholdInfo,
+		//	},
+		//	{
+		//		Name:        "Heap Objects",
+		//		Value:       formatCount(float64(ms.HeapObjects)),
+		//		Description: "Number of objects currently allocated on the heap. A steady increase might indicate a memory leak, while frequent large variations might suggest heavy garbage collection activity. Correlates with Allocated Memory but counts objects rather than bytes. High numbers might indicate many small allocations.",
+		//		Level:       ThresholdInfo,
+		//	},
+		//	{
+		//		Name:        "GC Cycles",
+		//		Value:       formatCount(float64(ms.NumGC)),
+		//		Description: "Number of completed garbage collection cycles since startup. Frequent GC cycles might indicate memory pressure or inefficient memory usage patterns. In healthy applications, GC frequency should correlate with allocation rates and available memory. Sustained high frequency might indicate memory pressure.",
+		//		Level:       ThresholdInfo,
+		//	},
+		//}
+
+		data.MemoryMetrics = c.formatMemoryMetrics()
 
 		// Runtime Metrics
 		gcAvg := 0.0
@@ -339,67 +415,107 @@ func (c *StandardCollector) Handler() http.Handler {
 			gcAvg = c.gcPauses.Sum() / float64(c.gcPauses.Count())
 		}
 
+		goroutines := int(c.goroutines.Value())
+		goroutineLevel := ThresholdOK
+		if goroutines >= c.thresholds.GoroutineCount {
+			goroutineLevel = ThresholdCritical
+		} else if goroutines >= int(float64(c.thresholds.GoroutineCount)*0.8) {
+			goroutineLevel = ThresholdWarning
+		}
+
 		data.RuntimeMetrics = []metricData{
 			{
 				Name:        "Goroutines",
 				Value:       formatCount(c.goroutines.Value()),
-				Description: "Current number of running goroutines",
+				Description: "Current number of goroutines in the application. A very high or constantly increasing number might indicate goroutine leaks or inefficient concurrency patterns.",
+				Level:       goroutineLevel,
+				Threshold:   formatCount(float64(c.thresholds.GoroutineCount)),
 			},
 			{
 				Name:        "Average GC Pause",
 				Value:       formatDuration(gcAvg),
-				Description: "Average garbage collection pause duration",
+				Description: "Average time the application paused for garbage collection. Long pauses can affect application responsiveness and latency. Lower is better.",
+				Level:       ThresholdInfo,
 			},
 			{
 				Name:        "CPU Threads",
 				Value:       formatCount(float64(runtime.NumCPU())),
-				Description: "Number of CPU threads available",
+				Description: "Number of CPU threads available to Go runtime. This is typically the number of logical CPU cores on the system, which affects parallel processing capability.",
+				Level:       ThresholdInfo,
 			},
 			{
 				Name:        "Uptime",
 				Value:       formatDuration(float64(time.Since(c.startTime).Milliseconds())),
-				Description: "Time since server start",
+				Description: "Time elapsed since the application started. Useful for monitoring application restarts and calculating average metrics over time.",
+				Level:       ThresholdInfo,
 			},
+		}
+
+		cpuUsed := 100 - c.cpuIdle.Value()
+		cpuLevel := ThresholdOK
+		if cpuUsed >= c.thresholds.CPUPercent {
+			cpuLevel = ThresholdCritical
+		} else if cpuUsed >= c.thresholds.CPUPercent*0.8 {
+			cpuLevel = ThresholdWarning
 		}
 
 		data.CPUMetrics = []metricData{
 			{
 				Name:        "User CPU",
 				Value:       fmt.Sprintf("%.1f%%", c.cpuUser.Value()),
-				Description: "Percentage of CPU time spent in user space",
+				Description: "Percentage of CPU time spent executing application code (user space). High values indicate compute-intensive application workload.",
+				Level:       cpuLevel,
+				Threshold:   fmt.Sprintf("%.1f%%", c.thresholds.CPUPercent),
 			},
 			{
 				Name:        "System CPU",
 				Value:       fmt.Sprintf("%.1f%%", c.cpuSystem.Value()),
-				Description: "Percentage of CPU time spent in kernel space",
+				Description: "Percentage of CPU time spent executing kernel code (system space). High values might indicate heavy I/O, system calls, or context switching.",
+				Level:       ThresholdInfo,
 			},
 			{
 				Name:        "Idle CPU",
 				Value:       fmt.Sprintf("%.1f%%", c.cpuIdle.Value()),
-				Description: "Percentage of CPU time idle",
+				Description: "Percentage of CPU time where the processor was idle. Low values indicate high CPU utilization which might affect application performance.",
+				Level:       ThresholdInfo,
 			},
+		}
+
+		diskUsed := c.diskWriteBytes.Value()
+		diskTotal := c.diskReadBytes.Value()
+		diskPercent := (diskUsed / diskTotal) * 100
+		diskLevel := ThresholdOK
+		if diskPercent >= c.thresholds.DiskPercent {
+			diskLevel = ThresholdCritical
+		} else if diskPercent >= c.thresholds.DiskPercent*0.8 {
+			diskLevel = ThresholdWarning
 		}
 
 		data.DiskMetrics = []metricData{
 			{
 				Name:        "Total Space",
 				Value:       formatBytes(c.diskReadBytes.Value()),
-				Description: "Total disk space available",
+				Description: "Total disk space available to the application's filesystem. This represents the total capacity of the volume where the application is running.",
+				Level:       diskLevel,
+				Threshold:   fmt.Sprintf("%.1f%%", c.thresholds.DiskPercent),
 			},
 			{
 				Name:        "Used Space",
 				Value:       formatBytes(c.diskWriteBytes.Value()),
-				Description: "Total disk space currently in use",
+				Description: "Amount of disk space currently in use. Includes application files, logs, and any data written by the application. High utilization might impact performance or cause write failures.",
+				Level:       ThresholdInfo,
 			},
 			{
 				Name:        "Space Added",
 				Value:       formatBytes(c.diskWrites.Value()),
-				Description: "Cumulative increase in disk space usage",
+				Description: "Cumulative increase in disk space usage. Useful for tracking disk growth over time and predicting future capacity requirements.",
+				Level:       ThresholdInfo,
 			},
 			{
 				Name:        "Total Growth",
 				Value:       formatBytes(c.diskReads.Value()),
-				Description: "Cumulative growth in total disk space",
+				Description: "Cumulative growth in total disk space. Includes both space used and space freed. Useful for understanding disk usage patterns over time.",
+				Level:       ThresholdInfo,
 			},
 		}
 
@@ -499,4 +615,144 @@ func isSystemMetric(name string) bool {
 		}
 	}
 	return false
+}
+
+func calculateErrorLevel(rate, threshold float64) ThresholdLevel {
+	if rate >= threshold {
+		return ThresholdCritical
+	} else if rate >= threshold*0.5 {
+		return ThresholdWarning
+	}
+	return ThresholdInfo
+}
+
+func (c *StandardCollector) formatHTTPMetrics() []metricData {
+	reqCount := c.httpRequests.Value()
+	clientErrors := c.httpClientErrors.Value()
+	serverErrors := c.httpServerErrors.Value()
+	clientErrorRate := 0.0
+	serverErrorRate := 0.0
+	if reqCount > 0 {
+		clientErrorRate = (clientErrors / reqCount) * 100
+		serverErrorRate = (serverErrors / reqCount) * 100
+	}
+
+	// Get response time metrics
+	p95 := c.responseTimeTracker.GetPercentile(95)
+	p99 := c.responseTimeTracker.GetPercentile(99)
+	avg := c.responseTimeTracker.GetAverage()
+
+	// Calculate request rates
+	recentRate := c.recentRequests.Value()
+	overallRate := float64(reqCount) / time.Since(c.startTime).Seconds()
+
+	//// Determine status levels
+	//errorLevel := ThresholdOK
+	//if serverErrorRate >= c.thresholds.ServerErrorRatePercent {
+	//	errorLevel = ThresholdCritical
+	//} else if serverErrorRate >= c.thresholds.ServerErrorRatePercent*0.5 {
+	//	errorLevel = ThresholdWarning
+	//}
+
+	return []metricData{
+		{
+			Name:        "Total Requests",
+			Value:       formatCount(reqCount),
+			Description: "Total number of HTTP requests processed since startup.",
+			Level:       ThresholdInfo,
+		},
+		{
+			Name:        "Recent Request Rate",
+			Value:       fmt.Sprintf("%.1f/min", recentRate),
+			Description: "Number of requests in the last minute. Compare with overall rate to identify traffic spikes.",
+			Level:       ThresholdInfo,
+		},
+		{
+			Name:        "Overall Request Rate",
+			Value:       fmt.Sprintf("%.2f/sec", overallRate),
+			Description: "Average requests per second since startup.",
+			Level:       ThresholdInfo,
+		},
+		{
+			Name:        "Client Errors (4xx)",
+			Value:       fmt.Sprintf("%.1f%% (%s errors)", clientErrorRate, formatCount(clientErrors)),
+			Description: "Percentage of requests resulting in 4xx status codes. Usually indicates client-side issues like validation errors or missing resources.",
+			Level:       calculateErrorLevel(clientErrorRate, c.thresholds.ClientErrorRatePercent),
+			Threshold:   fmt.Sprintf("%.1f%%", c.thresholds.ClientErrorRatePercent),
+		},
+		{
+			Name:        "Server Errors (5xx)",
+			Value:       fmt.Sprintf("%.1f%% (%s errors)", serverErrorRate, formatCount(serverErrors)),
+			Description: "Percentage of requests resulting in 5xx status codes. Indicates server-side problems that need investigation.",
+			Level:       calculateErrorLevel(serverErrorRate, c.thresholds.ServerErrorRatePercent),
+			Threshold:   fmt.Sprintf("%.1f%%", c.thresholds.ServerErrorRatePercent),
+		},
+		{
+			Name:        "Response Time (P95)",
+			Value:       fmt.Sprintf("%.2f ms", p95),
+			Description: "95% of requests complete within this time. A better indicator of user experience than average.",
+			Level:       ThresholdInfo,
+		},
+		{
+			Name:        "Response Time (P99)",
+			Value:       fmt.Sprintf("%.2f ms", p99),
+			Description: "99% of requests complete within this time. Useful for identifying worst-case response times.",
+			Level:       ThresholdInfo,
+		},
+		{
+			Name:        "Average Response Time",
+			Value:       fmt.Sprintf("%.2f ms", avg),
+			Description: "Mean response time across all requests. May be skewed by outliers.",
+			Level:       ThresholdInfo,
+		},
+	}
+}
+
+func (c *StandardCollector) formatMemoryMetrics() []metricData {
+	status := c.checkMemoryMetrics()
+	var ms runtime.MemStats
+	runtime.ReadMemStats(&ms)
+
+	// For trend calculation
+	totalAppMemory := float64(ms.Sys)
+	heapInUse := float64(ms.HeapInuse)
+
+	return []metricData{
+		{
+			Name:        "Application Memory",
+			Value:       fmt.Sprintf("%.1f MiB", totalAppMemory/(1<<20)),
+			Description: "Total memory obtained from the OS for this Go application. This represents the application's total memory footprint.",
+			Level:       ThresholdInfo,
+		},
+		{
+			Name:        "Memory Growth Rate",
+			Value:       fmt.Sprintf("%.1f MiB/min", (c.heapGrowthRate.Value()*60)/(1<<20)),
+			Description: "Rate of change in total memory usage. Sustained increases may indicate memory leaks.",
+			Level:       status["memory_growth"].Level,
+			Threshold:   fmt.Sprintf("%.1f%%/min", c.thresholds.MemoryGrowthRatePercent),
+			Reason:      status["memory_growth"].Reason,
+		},
+		{
+			Name:        "GC Pause Time",
+			Value:       status["gc_pause"].Reason,
+			Description: "Time the application pauses for garbage collection. Long pauses can affect responsiveness.",
+			Level:       status["gc_pause"].Level,
+			Threshold:   fmt.Sprintf("%.1fms", c.thresholds.GCPauseMs),
+			Reason:      status["gc_pause"].Reason,
+		},
+		{
+			Name:        "GC Frequency",
+			Value:       status["gc_frequency"].Reason,
+			Description: "How often garbage collection runs. High frequency might indicate memory pressure.",
+			Level:       status["gc_frequency"].Level,
+			Threshold:   fmt.Sprintf("%.0f/min", c.thresholds.MaxGCFrequency),
+			Reason:      status["gc_frequency"].Reason,
+		},
+		{
+			Name:        "Heap Usage",
+			Value:       fmt.Sprintf("%.1f MiB (%.1f%% utilized)", heapInUse/(1<<20), (heapInUse/float64(ms.HeapSys))*100),
+			Description: "Current heap memory usage and utilization. Go's GC typically maintains high utilization (90-100%) for efficiency.",
+			Level:       ThresholdInfo,
+		},
+	}
 }

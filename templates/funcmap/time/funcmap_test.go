@@ -15,16 +15,18 @@ func TestTimeAgo(t *testing.T) {
 		input    time.Time
 		expected string
 	}{
-		{now.Add(-time.Second), "1 second ago"},
-		{now.Add(-time.Second * 2), "2 seconds ago"},
+		{now.Add(-time.Second), "just now"},
+		{now.Add(-time.Second * 3), "just now"},
+		{now.Add(-time.Second * 10), "10 seconds ago"},
+		{now.Add(-time.Second * 59), "59 seconds ago"},
 		{now.Add(-time.Minute), "1 minute ago"},
 		{now.Add(-time.Minute * 2), "2 minutes ago"},
 		{now.Add(-time.Hour), "1 hour ago"},
 		{now.Add(-time.Hour * 2), "2 hours ago"},
 		{now.Add(-time.Hour * 24), "1 day ago"},
 		{now.Add(-time.Hour * 24 * 2), "2 days ago"},
-		{now.Add(-time.Hour * 24 * 7), "1 week ago"},
-		{now.Add(-time.Hour * 24 * 7 * 2), "2 weeks ago"},
+		{now.Add(-time.Hour * 24 * 7), "7 days ago"},
+		{now.Add(-time.Hour * 24 * 7 * 2), "14 days ago"},
 		{now.Add(-time.Hour * 24 * 30), "1 month ago"},
 		{now.Add(-time.Hour * 24 * 30 * 2), "2 months ago"},
 		{now.Add(-time.Hour * 24 * 365), "1 year ago"},

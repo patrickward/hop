@@ -49,7 +49,11 @@ func timeAgo(t time.Time) string {
 
 	// Very recent
 	if duration < time.Minute {
-		return "just now"
+		secs := int(duration.Seconds())
+		if secs <= 3 {
+			return "just now"
+		}
+		return fmt.Sprintf("%d seconds ago", secs)
 	}
 
 	// Minutes

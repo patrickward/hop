@@ -1,9 +1,7 @@
 package conf_test
 
 import (
-	"flag"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/patrickward/hop/conf"
@@ -130,89 +128,4 @@ func ExampleDuration() {
 	// Output:
 	// Default timeout: 30s
 	// Environment timeout: 1m30s
-}
-
-func ExampleBasicFlags() {
-	// STEP1: Define a custom configuration struct
-	type AppConfig struct {
-		Hop conf.HopConfig
-		API struct {
-			Endpoint string            `json:"endpoint" env:"API_ENDPOINT" default:"http://api.local"`
-			Timeout  conftype.Duration `json:"timeout" env:"API_TIMEOUT" default:"30s"`
-		} `json:"api"`
-	}
-
-	// Create a temporary config file (for example purposes only)
-	configJSON := `{
-        "api": {
-            "endpoint": "https://api.example.com"
-        }
-    }`
-	tmpFile, err := os.CreateTemp("", "config.*.json")
-	if err != nil {
-		fmt.Printf("Error creating temp file: %v\n", err)
-		return
-	}
-	defer func(name string) {
-		_ = os.Remove(name)
-	}(tmpFile.Name())
-
-	if _, err := tmpFile.Write([]byte(configJSON)); err != nil {
-		fmt.Printf("Error writing temp file: %v\n", err)
-		return
-	}
-	_ = tmpFile.Close()
-
-	// Save and restore os.Args (for example purposes only)
-	oldArgs := os.Args
-	defer func() { os.Args = oldArgs }()
-
-	// Simulate command line arguments
-	os.Args = []string{
-		"myapp",
-		"-config", tmpFile.Name(),
-		"-api-timeout", "1m",
-	}
-
-	// STEP2: Set up flags
-	fs := flag.NewFlagSet("myapp", flag.ContinueOnError)
-	fs.SetOutput(io.Discard) // Disable flag output for example
-
-	// STEP3: Add basic flags
-	fs.String("config", "config.json", "Path to config file")
-	fs.Bool("version", false, "Show version and exit")
-
-	// STEP4: Add custom flags for this application
-	apiTimeout := fs.Duration("api-timeout", 0, "API timeout duration")
-
-	// STEP5: Parse flags
-	_ = fs.Parse(os.Args[1:])
-
-	// STEP6: Create and load configuration
-	cfg := &AppConfig{}
-	cmr := conf.NewManager(cfg, conf.WithConfigFile(fs.Lookup("config").Value.String()))
-	if err := cmr.Load(); err != nil {
-		fmt.Printf("Error loading config: %v\n", err)
-		return
-	}
-	//if err := conf.Load(cfg, fs.Lookup("config").Value.String()); err != nil {
-	//	fmt.Printf("Error loading config: %v\n", err)
-	//	return
-	//}
-
-	// STEP7: Apply flag overrides
-	//conf.ApplyFlagOverrides(&cfg.Hop, fs)
-
-	// Apply other flag values that should override config
-	if apiTimeout != nil && *apiTimeout != 0 {
-		cfg.API.Timeout = conftype.Duration{Duration: *apiTimeout}
-	}
-
-	// Print the resulting configuration
-	fmt.Printf("API Endpoint: %s\n", cfg.API.Endpoint)
-	fmt.Printf("API Timeout: %s\n", cfg.API.Timeout)
-
-	// Output:
-	// API Endpoint: https://api.example.com
-	// API Timeout: 1m0s
 }

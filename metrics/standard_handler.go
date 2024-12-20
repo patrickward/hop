@@ -6,8 +6,6 @@ import (
 	"html/template"
 	"net/http"
 	"runtime"
-	"sort"
-	"strings"
 	"time"
 )
 
@@ -558,64 +556,64 @@ func formatDuration(ms float64) string {
 	return fmt.Sprintf("%.2f s", ms/1000)
 }
 
-func (c *StandardCollector) formatCustomMetrics() []metricData {
-	var metrics []metricData
+//func (c *StandardCollector) formatCustomMetrics() []metricData {
+//	var metrics []metricData
+//
+//	c.mu.RLock()
+//	defer c.mu.RUnlock()
+//
+//	// Add counters
+//	for name, counter := range c.counters {
+//		if !isSystemMetric(name) {
+//			metrics = append(metrics, metricData{
+//				Name:  formatMetricName(name),
+//				Value: formatCount(counter.Value()),
+//			})
+//		}
+//	}
+//
+//	// Add gauges
+//	for name, gauge := range c.gauges {
+//		if !isSystemMetric(name) {
+//			metrics = append(metrics, metricData{
+//				Name:  formatMetricName(name),
+//				Value: fmt.Sprintf("%.2f", gauge.Value()),
+//			})
+//		}
+//	}
+//
+//	// Sort metrics by name for consistent display
+//	sort.Slice(metrics, func(i, j int) bool {
+//		return metrics[i].Name < metrics[j].Name
+//	})
+//
+//	return metrics
+//}
 
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+//func formatMetricName(name string) string {
+//	// Convert snake_case to Title Case
+//	parts := strings.Split(name, "_")
+//	for i, part := range parts {
+//		parts[i] = strings.Title(part)
+//	}
+//	return strings.Join(parts, " ")
+//}
 
-	// Add counters
-	for name, counter := range c.counters {
-		if !isSystemMetric(name) {
-			metrics = append(metrics, metricData{
-				Name:  formatMetricName(name),
-				Value: formatCount(counter.Value()),
-			})
-		}
-	}
-
-	// Add gauges
-	for name, gauge := range c.gauges {
-		if !isSystemMetric(name) {
-			metrics = append(metrics, metricData{
-				Name:  formatMetricName(name),
-				Value: fmt.Sprintf("%.2f", gauge.Value()),
-			})
-		}
-	}
-
-	// Sort metrics by name for consistent display
-	sort.Slice(metrics, func(i, j int) bool {
-		return metrics[i].Name < metrics[j].Name
-	})
-
-	return metrics
-}
-
-func formatMetricName(name string) string {
-	// Convert snake_case to Title Case
-	parts := strings.Split(name, "_")
-	for i, part := range parts {
-		parts[i] = strings.Title(part)
-	}
-	return strings.Join(parts, " ")
-}
-
-func isSystemMetric(name string) bool {
-	systemPrefixes := []string{
-		"http_",
-		"memory_",
-		"goroutines",
-		"gc_",
-	}
-
-	for _, prefix := range systemPrefixes {
-		if strings.HasPrefix(name, prefix) {
-			return true
-		}
-	}
-	return false
-}
+//func isSystemMetric(name string) bool {
+//	systemPrefixes := []string{
+//		"http_",
+//		"memory_",
+//		"goroutines",
+//		"gc_",
+//	}
+//
+//	for _, prefix := range systemPrefixes {
+//		if strings.HasPrefix(name, prefix) {
+//			return true
+//		}
+//	}
+//	return false
+//}
 
 func calculateErrorLevel(rate, threshold float64) ThresholdLevel {
 	if rate >= threshold {

@@ -14,21 +14,14 @@ type mockSMTPClient struct {
 }
 
 type mockMessage struct {
-	from        []*mail.Address
-	to          []*mail.Address
-	cc          []*mail.Address
-	bcc         []*mail.Address
-	replyTo     string
-	subject     string
-	bodyPlain   string
-	bodyHTML    string
-	attachments []mockAttachment
-}
-
-type mockAttachment struct {
-	filename    string
-	contentType string
-	data        []byte
+	from      []*mail.Address
+	to        []*mail.Address
+	cc        []*mail.Address
+	bcc       []*mail.Address
+	replyTo   string
+	subject   string
+	bodyPlain string
+	bodyHTML  string
 }
 
 func newMockSMTPClient() *mockSMTPClient {
@@ -40,7 +33,7 @@ func newMockSMTPClient() *mockSMTPClient {
 func (m *mockSMTPClient) DialAndSend(messages ...*gomail.Msg) error {
 	if m.shouldError {
 		if m.errorMsg != "" {
-			return fmt.Errorf(m.errorMsg)
+			return fmt.Errorf("%s", m.errorMsg)
 		}
 		return fmt.Errorf("mock smtp error")
 	}

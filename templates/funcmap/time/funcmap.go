@@ -6,11 +6,6 @@ import (
 	"time"
 )
 
-const (
-	secondsInDay  = 24 * time.Hour     // Number of seconds in a day
-	secondsInYear = 365 * secondsInDay // Number of seconds in a year
-)
-
 // FuncMap returns a function map with functions for working with time.Time values.
 func FuncMap() template.FuncMap {
 	return template.FuncMap{

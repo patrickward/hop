@@ -1,4 +1,4 @@
-package events
+package dispatch
 
 import (
 	"context"
@@ -11,20 +11,20 @@ import (
 
 var eventID atomic.Uint64
 
-// Bus manages event publishing and subscription
-type Bus struct {
+// Dispatcher manages event publishing and subscription
+type Dispatcher struct {
 	handlers map[string][]Handler // key is the event signature
 	logger   *slog.Logger
 	mu       sync.RWMutex
 }
 
-// NewEventBus creates a new event bus
-func NewEventBus(logger *slog.Logger) *Bus {
+// NewDispatcher creates a new event bus/dispatcher
+func NewDispatcher(logger *slog.Logger) *Dispatcher {
 	if logger == nil {
 		panic("logger is required for event bus")
 	}
 
-	return &Bus{
+	return &Dispatcher{
 		handlers: make(map[string][]Handler),
 		logger:   logger,
 	}
@@ -32,7 +32,7 @@ func NewEventBus(logger *slog.Logger) *Bus {
 
 // On registers a handler for an event signature
 // Supports wildcards: "hop.*" or "*.system.start"
-func (b *Bus) On(signature string, handler Handler) {
+func (b *Dispatcher) On(signature string, handler Handler) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -49,7 +49,7 @@ func (b *Bus) On(signature string, handler Handler) {
 }
 
 // Emit sends an event to all registered handlers asynchronously
-func (b *Bus) Emit(ctx context.Context, signature string, payload any) {
+func (b *Dispatcher) Emit(ctx context.Context, signature string, payload any) {
 	event := NewEvent(signature, payload)
 	b.mu.RLock()
 	var matchingHandlers []Handler
@@ -89,7 +89,7 @@ func (b *Bus) Emit(ctx context.Context, signature string, payload any) {
 }
 
 // EmitSync sends an event and waits for all handlers to complete
-func (b *Bus) EmitSync(ctx context.Context, signature string, payload any) {
+func (b *Dispatcher) EmitSync(ctx context.Context, signature string, payload any) {
 	event := NewEvent(signature, payload)
 	b.mu.RLock()
 	var matchingHandlers []Handler

@@ -1,4 +1,4 @@
-package events_test
+package dispatch_test
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/patrickward/hop/events"
+	"github.com/patrickward/hop/dispatch"
 )
 
 func newTestLogger(out io.Writer) *slog.Logger {
@@ -22,10 +22,10 @@ func newTestLogger(out io.Writer) *slog.Logger {
 }
 
 func TestEventBus_On(t *testing.T) {
-	bus := events.NewEventBus(newTestLogger(os.Stdout))
-	done := make(chan events.Event)
+	bus := dispatch.NewDispatcher(newTestLogger(os.Stdout))
+	done := make(chan dispatch.Event)
 
-	handler := func(ctx context.Context, event events.Event) {
+	handler := func(ctx context.Context, event dispatch.Event) {
 		done <- event
 	}
 
@@ -87,10 +87,10 @@ func TestEventBus_Wildcards(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bus := events.NewEventBus(newTestLogger(os.Stdout))
+			bus := dispatch.NewDispatcher(newTestLogger(os.Stdout))
 			done := make(chan struct{})
 
-			bus.On(tt.pattern, func(ctx context.Context, event events.Event) {
+			bus.On(tt.pattern, func(ctx context.Context, event dispatch.Event) {
 				done <- struct{}{}
 			})
 
@@ -107,13 +107,13 @@ func TestEventBus_Wildcards(t *testing.T) {
 }
 
 func TestEventBus_MultipleHandlers(t *testing.T) {
-	bus := events.NewEventBus(newTestLogger(os.Stdout))
+	bus := dispatch.NewDispatcher(newTestLogger(os.Stdout))
 	var wg sync.WaitGroup
 	handlerCount := 3
 	wg.Add(handlerCount)
 
 	for i := 0; i < handlerCount; i++ {
-		bus.On("test.event", func(ctx context.Context, event events.Event) {
+		bus.On("test.event", func(ctx context.Context, event dispatch.Event) {
 			defer wg.Done()
 		})
 	}
@@ -136,16 +136,16 @@ func TestEventBus_MultipleHandlers(t *testing.T) {
 }
 
 func TestEventBus_PanicRecovery(t *testing.T) {
-	bus := events.NewEventBus(newTestLogger(os.Stdout))
+	bus := dispatch.NewDispatcher(newTestLogger(os.Stdout))
 	done := make(chan struct{})
 
 	// First handler panics
-	bus.On("test.event", func(ctx context.Context, event events.Event) {
+	bus.On("test.event", func(ctx context.Context, event dispatch.Event) {
 		panic("test panic")
 	})
 
 	// Second handler should still run
-	bus.On("test.event", func(ctx context.Context, event events.Event) {
+	bus.On("test.event", func(ctx context.Context, event dispatch.Event) {
 		done <- struct{}{}
 	})
 
@@ -163,14 +163,14 @@ func TestEventBus_PanicRecovery(t *testing.T) {
 }
 
 func TestEventBus_ConcurrentEmit(t *testing.T) {
-	bus := events.NewEventBus(newTestLogger(os.Stdout))
+	bus := dispatch.NewDispatcher(newTestLogger(os.Stdout))
 	eventCount := 100
 
 	// Create a buffered channel to collect results
 	results := make(chan string, eventCount)
 
 	// Register handler that sends event IDs to results channel
-	bus.On("test.event", func(ctx context.Context, event events.Event) {
+	bus.On("test.event", func(ctx context.Context, event dispatch.Event) {
 		results <- event.ID
 	})
 
@@ -203,10 +203,10 @@ func TestEventBus_ConcurrentEmit(t *testing.T) {
 }
 
 func TestEventBus_EmitSync(t *testing.T) {
-	bus := events.NewEventBus(newTestLogger(os.Stdout))
+	bus := dispatch.NewDispatcher(newTestLogger(os.Stdout))
 	done := make(chan struct{})
 
-	bus.On("test.event", func(ctx context.Context, event events.Event) {
+	bus.On("test.event", func(ctx context.Context, event dispatch.Event) {
 		time.Sleep(50 * time.Millisecond) // Simulate work
 		close(done)
 	})
@@ -223,11 +223,11 @@ func TestEventBus_EmitSync(t *testing.T) {
 }
 
 func TestEventBus_ContextCancellation(t *testing.T) {
-	bus := events.NewEventBus(newTestLogger(os.Stdout))
+	bus := dispatch.NewDispatcher(newTestLogger(os.Stdout))
 	started := make(chan struct{})
 	completed := make(chan struct{})
 
-	bus.On("test.event", func(ctx context.Context, event events.Event) {
+	bus.On("test.event", func(ctx context.Context, event dispatch.Event) {
 		close(started)
 		<-ctx.Done()
 		close(completed)

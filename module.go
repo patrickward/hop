@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/patrickward/hop/events"
+	"github.com/patrickward/hop/dispatch"
 	"github.com/patrickward/hop/route"
 )
 
@@ -32,10 +32,10 @@ type HTTPModule interface {
 	RegisterRoutes(router *route.Mux)
 }
 
-// EventModule represents a module that can handle events
-type EventModule interface {
+// DispatcherModule represents a module that can handle events
+type DispatcherModule interface {
 	Module
-	RegisterEvents(events *events.Bus)
+	RegisterEvents(events *dispatch.Dispatcher)
 }
 
 // TemplateDataModule represents a module that can add data to the template context

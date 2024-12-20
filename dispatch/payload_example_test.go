@@ -1,4 +1,4 @@
-package events_test
+package dispatch_test
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/patrickward/hop/events"
+	"github.com/patrickward/hop/dispatch"
 )
 
 func ExamplePayloadAs() {
@@ -17,13 +17,13 @@ func ExamplePayloadAs() {
 		Name string
 	}
 
-	evt := events.NewEvent("user.created", UserCreated{
+	evt := dispatch.NewEvent("user.created", UserCreated{
 		ID:   "123",
 		Name: "John Doe",
 	})
 
 	// Safe conversion with error handling
-	user, err := events.PayloadAs[UserCreated](evt)
+	user, err := dispatch.PayloadAs[UserCreated](evt)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -40,10 +40,10 @@ func ExampleHandlePayload() {
 
 	logger := newTestLogger(os.Stderr)
 	// Create a test event bus
-	bus := events.NewEventBus(logger) // You'd normally pass a logger here
+	bus := dispatch.NewDispatcher(logger) // You'd normally pass a logger here
 
 	// Register handler with automatic payload conversion
-	bus.On("user.created", events.HandlePayload[UserCreated](func(ctx context.Context, user UserCreated) {
+	bus.On("user.created", dispatch.HandlePayload[UserCreated](func(ctx context.Context, user UserCreated) {
 		fmt.Printf("Processing user: %s\n", user.Name)
 	}))
 
@@ -58,13 +58,13 @@ func ExampleHandlePayload() {
 
 func ExamplePayloadAsMap() {
 	// Create an event with a map payload
-	evt := events.NewEvent("config.updated", map[string]any{
+	evt := dispatch.NewEvent("config.updated", map[string]any{
 		"database": "postgres",
 		"port":     5432,
 	})
 
 	// Use the convenience function for map payloads
-	config, err := events.PayloadAsMap(evt)
+	config, err := dispatch.PayloadAsMap(evt)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -78,13 +78,13 @@ func ExamplePayloadAsMap() {
 
 func ExamplePayloadAsSlice() {
 	// Create an event with a slice payload
-	evt := events.NewEvent("users.updated", []any{
+	evt := dispatch.NewEvent("users.updated", []any{
 		"john",
 		"jane",
 	})
 
 	// Use the convenience function for slice payloads
-	users, err := events.PayloadAsSlice(evt)
+	users, err := dispatch.PayloadAsSlice(evt)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -106,13 +106,13 @@ func ExamplePayloadMapAs() {
 	var results []string
 
 	// Create an event with a map payload
-	evt := events.NewEvent("regions.updated", map[string]any{
+	evt := dispatch.NewEvent("regions.updated", map[string]any{
 		"us-east": Region{Code: "USE", Name: "US East"},
 		"us-west": Region{Code: "USW", Name: "US West"},
 	})
 
 	// Convert the payload to a map of Regions
-	regions, err := events.PayloadMapAs[Region](evt)
+	regions, err := dispatch.PayloadMapAs[Region](evt)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -144,13 +144,13 @@ func ExamplePayloadSliceAs() {
 	}
 
 	// Create an event with a slice payload
-	evt := events.NewEvent("users.imported", []any{
+	evt := dispatch.NewEvent("users.imported", []any{
 		User{ID: "1", Name: "Alice"},
 		User{ID: "2", Name: "Bob"},
 	})
 
 	// Convert the payload to a slice of Users
-	users, err := events.PayloadSliceAs[User](evt)
+	users, err := dispatch.PayloadSliceAs[User](evt)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return

@@ -1,4 +1,4 @@
-package events_test
+package dispatch_test
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/patrickward/hop/events"
+	"github.com/patrickward/hop/dispatch"
 )
 
 type testUser struct {
@@ -46,9 +46,9 @@ func TestPayloadAs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			evt := events.NewEvent("test", tt.payload)
+			evt := dispatch.NewEvent("test", tt.payload)
 
-			result, err := events.PayloadAs[testUser](evt)
+			result, err := dispatch.PayloadAs[testUser](evt)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -65,19 +65,19 @@ func TestPayloadAs(t *testing.T) {
 func TestMustPayloadAs(t *testing.T) {
 	t.Run("valid payload", func(t *testing.T) {
 		user := testUser{ID: "123", Name: "John"}
-		evt := events.NewEvent("test", user)
+		evt := dispatch.NewEvent("test", user)
 
 		assert.NotPanics(t, func() {
-			result := events.MustPayloadAs[testUser](evt)
+			result := dispatch.MustPayloadAs[testUser](evt)
 			assert.Equal(t, user, result)
 		})
 	})
 
 	t.Run("invalid payload panics", func(t *testing.T) {
-		evt := events.NewEvent("test", "not a user")
+		evt := dispatch.NewEvent("test", "not a user")
 
 		assert.Panics(t, func() {
-			_ = events.MustPayloadAs[testUser](evt)
+			_ = dispatch.MustPayloadAs[testUser](evt)
 		})
 	})
 }
@@ -85,12 +85,12 @@ func TestMustPayloadAs(t *testing.T) {
 func TestHandlePayload(t *testing.T) {
 	t.Run("successful handling", func(t *testing.T) {
 		var handled testUser
-		handler := events.HandlePayload[testUser](func(ctx context.Context, user testUser) {
+		handler := dispatch.HandlePayload[testUser](func(ctx context.Context, user testUser) {
 			handled = user
 		})
 
 		user := testUser{ID: "123", Name: "John"}
-		evt := events.NewEvent("test", user)
+		evt := dispatch.NewEvent("test", user)
 
 		handler(context.Background(), evt)
 		assert.Equal(t, user, handled)
@@ -98,11 +98,11 @@ func TestHandlePayload(t *testing.T) {
 
 	t.Run("wrong type not handled", func(t *testing.T) {
 		var handled bool
-		handler := events.HandlePayload[testUser](func(ctx context.Context, user testUser) {
+		handler := dispatch.HandlePayload[testUser](func(ctx context.Context, user testUser) {
 			handled = true
 		})
 
-		evt := events.NewEvent("test", "not a user")
+		evt := dispatch.NewEvent("test", "not a user")
 
 		handler(context.Background(), evt)
 		assert.False(t, handled)
@@ -111,35 +111,35 @@ func TestHandlePayload(t *testing.T) {
 
 func TestIsPayloadType(t *testing.T) {
 	t.Run("correct type returns true", func(t *testing.T) {
-		evt := events.NewEvent("test", testUser{ID: "123", Name: "John"})
-		assert.True(t, events.IsPayloadType[testUser](evt))
+		evt := dispatch.NewEvent("test", testUser{ID: "123", Name: "John"})
+		assert.True(t, dispatch.IsPayloadType[testUser](evt))
 	})
 
 	t.Run("wrong type returns false", func(t *testing.T) {
-		evt := events.NewEvent("test", "not a user")
-		assert.False(t, events.IsPayloadType[testUser](evt))
+		evt := dispatch.NewEvent("test", "not a user")
+		assert.False(t, dispatch.IsPayloadType[testUser](evt))
 	})
 
 	t.Run("nil payload returns false", func(t *testing.T) {
-		evt := events.NewEvent("test", nil)
-		assert.False(t, events.IsPayloadType[testUser](evt))
+		evt := dispatch.NewEvent("test", nil)
+		assert.False(t, dispatch.IsPayloadType[testUser](evt))
 	})
 }
 
 func TestPayloadAsMap(t *testing.T) {
 	t.Run("valid map payload", func(t *testing.T) {
 		payload := map[string]any{"key": "value"}
-		evt := events.NewEvent("test", payload)
+		evt := dispatch.NewEvent("test", payload)
 
-		result, err := events.PayloadAsMap(evt)
+		result, err := dispatch.PayloadAsMap(evt)
 		require.NoError(t, err)
 		assert.Equal(t, payload, result)
 	})
 
 	t.Run("non-map payload", func(t *testing.T) {
-		evt := events.NewEvent("test", "not a map")
+		evt := dispatch.NewEvent("test", "not a map")
 
-		_, err := events.PayloadAsMap(evt)
+		_, err := dispatch.PayloadAsMap(evt)
 		require.Error(t, err)
 	})
 }
@@ -147,17 +147,17 @@ func TestPayloadAsMap(t *testing.T) {
 func TestPayloadAsSlice(t *testing.T) {
 	t.Run("valid slice payload", func(t *testing.T) {
 		payload := []any{"one", "two", "three"}
-		evt := events.NewEvent("test", payload)
+		evt := dispatch.NewEvent("test", payload)
 
-		result, err := events.PayloadAsSlice(evt)
+		result, err := dispatch.PayloadAsSlice(evt)
 		require.NoError(t, err)
 		assert.Equal(t, payload, result)
 	})
 
 	t.Run("non-slice payload", func(t *testing.T) {
-		evt := events.NewEvent("test", "not a slice")
+		evt := dispatch.NewEvent("test", "not a slice")
 
-		_, err := events.PayloadAsSlice(evt)
+		_, err := dispatch.PayloadAsSlice(evt)
 		require.Error(t, err)
 	})
 }
@@ -225,9 +225,9 @@ func TestPayloadSliceAs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			evt := events.NewEvent("test.slice", tt.payload)
+			evt := dispatch.NewEvent("test.slice", tt.payload)
 
-			items, err := events.PayloadSliceAs[TestItem](evt)
+			items, err := dispatch.PayloadSliceAs[TestItem](evt)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -299,9 +299,9 @@ func TestPayloadMapAs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			evt := events.NewEvent("test.map", tt.payload)
+			evt := dispatch.NewEvent("test.map", tt.payload)
 
-			items, err := events.PayloadMapAs[TestItem](evt)
+			items, err := dispatch.PayloadMapAs[TestItem](evt)
 
 			if tt.wantErr {
 				require.Error(t, err)

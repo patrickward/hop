@@ -16,7 +16,7 @@ import (
 	"github.com/justinas/nosurf"
 
 	"github.com/patrickward/hop/conf"
-	"github.com/patrickward/hop/events"
+	"github.com/patrickward/hop/dispatch"
 	"github.com/patrickward/hop/log"
 	"github.com/patrickward/hop/render"
 	"github.com/patrickward/hop/render/htmx"
@@ -49,7 +49,7 @@ type App struct {
 	router         *route.Mux                  // router instance
 	tm             *render.TemplateManager     // template manager instance
 	config         *conf.HopConfig             // configuration
-	events         *events.Bus                 // event bus instance
+	events         *dispatch.Dispatcher        // event bus instance
 	session        *scs.SessionManager         // session manager instance
 	modules        map[string]Module           // map of modules by ID
 	startOrder     []string                    // order in which modules should be started / stopped in reverse
@@ -65,7 +65,7 @@ func New(cfg AppConfig) (*App, error) {
 	logger := createLogger(&cfg)
 
 	// Create events
-	eventBus := events.NewEventBus(logger)
+	eventBus := dispatch.NewDispatcher(logger)
 
 	// Create template manager
 	var tm *render.TemplateManager
@@ -243,8 +243,8 @@ func (a *App) Stop(ctx context.Context) error {
 // Logger returns the logger instance for the app
 func (a *App) Logger() *slog.Logger { return a.logger }
 
-// Events returns the event bus for the app
-func (a *App) Events() *events.Bus { return a.events }
+// Dispatcher returns the event bus for the app
+func (a *App) Dispatcher() *dispatch.Dispatcher { return a.events }
 
 // Router returns the router instance for the app
 func (a *App) Router() *route.Mux { return a.router }

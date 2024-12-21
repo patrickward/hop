@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -187,11 +188,21 @@ func (c *StandardCollector) formatHTTPMetrics() []metricData {
 	p99 := c.responseTimeTracker.GetPercentile(99)
 	avg := c.responseTimeTracker.GetAverage()
 
+	// Add method breakdown
+	var methodStats []string
+	for method, counter := range c.requestsByMethod {
+		count := counter.Value()
+		if count > 0 {
+			percentage := (count / reqCount) * 100
+			methodStats = append(methodStats, fmt.Sprintf("%s: %.1f%%", method, percentage))
+		}
+	}
+
 	// Calculate request rates
 	recentRate := c.recentRequests.Value()
 	overallRate := float64(reqCount) / time.Since(c.startTime).Seconds()
 
-	return []metricData{
+	metrics := []metricData{
 		{
 			Name:        "Total Requests",
 			Value:       formatCount(reqCount),
@@ -242,7 +253,24 @@ func (c *StandardCollector) formatHTTPMetrics() []metricData {
 			Description: "Mean response time across all requests. May be skewed by outliers.",
 			Level:       ThresholdInfo,
 		},
+		{
+			Name:        "Concurrent Requests",
+			Value:       formatCount(c.concurrentRequests.Value()),
+			Description: "Number of requests currently being processed. High values might indicate slow responses or resource contention (server strain).",
+			Level:       ThresholdInfo,
+		},
 	}
+
+	if len(methodStats) > 0 {
+		metrics = append(metrics, metricData{
+			Name:        "Request Methods",
+			Value:       strings.Join(methodStats, ", "),
+			Description: "Breakdown of requests by HTTP method. Useful for identifying popular endpoints, unusual traffic patterns, and potential security concerns.",
+			Level:       ThresholdInfo,
+		})
+	}
+
+	return metrics
 }
 
 func (c *StandardCollector) formatMemoryMetrics() []metricData {

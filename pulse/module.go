@@ -125,6 +125,10 @@ func (m *Module) MetricsMiddleware() route.Middleware {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 
+			// Track concurrent requests
+			m.collector.IncrementConcurrentRequests()
+			defer m.collector.DecrementConcurrentRequests()
+
 			// Wrap response writer to capture status code
 			rw := newResponseWriter(w)
 

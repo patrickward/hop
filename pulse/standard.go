@@ -106,6 +106,8 @@ type StandardCollector struct {
 	responseTimeTracker *responseTimeTracker
 	recentRequests      *standardGauge // Requests in last minute
 	requestsLastMinute  uint64         // For rate calculation
+	requestsByMethod    map[string]*standardCounter
+	concurrentRequests  *standardGauge
 	lastMinuteCheck     time.Time
 }
 
@@ -137,6 +139,8 @@ func NewStandardCollector(opts ...StandardCollectorOption) *StandardCollector {
 		thresholds:          DefaultThresholds,
 		lastStatsTime:       time.Now(),
 		responseTimeTracker: newResponseTimeTracker(1000), // Keep last 1000 samples
+		requestsByMethod:    make(map[string]*standardCounter),
+		concurrentRequests:  nil,
 		lastMinuteCheck:     time.Now(),
 	}
 
@@ -175,6 +179,12 @@ func NewStandardCollector(opts ...StandardCollectorOption) *StandardCollector {
 	c.heapGrowthRate = c.getOrCreateGauge("memory_heap_growth_rate_bytes_per_sec")
 
 	c.recentRequests = c.getOrCreateGauge("http_requests_last_minute")
+
+	for _, method := range []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"} {
+		c.requestsByMethod[method] = c.getOrCreateCounter(fmt.Sprintf("http_requests_%s", method))
+	}
+
+	c.concurrentRequests = c.getOrCreateGauge("http_concurrent_requests")
 
 	// Get initial stats
 	c.lastCPUStats = &syscall.Rusage{}
@@ -365,11 +375,24 @@ func (c *StandardCollector) RecordGoroutineCount() {
 	c.goroutines.Set(float64(runtime.NumGoroutine()))
 }
 
+func (c *StandardCollector) IncrementConcurrentRequests() {
+	c.concurrentRequests.Add(1.0)
+}
+
+func (c *StandardCollector) DecrementConcurrentRequests() {
+	c.concurrentRequests.Sub(1.0)
+}
+
 // RecordHTTPRequest records metrics about an HTTP request
 func (c *StandardCollector) RecordHTTPRequest(method, path string, duration time.Duration, statusCode int) {
 	c.httpRequests.Inc()
 	c.httpDurations.Observe(float64(duration.Milliseconds()))
 	c.responseTimeTracker.Record(float64(duration.Milliseconds()))
+
+	// Track requests by method
+	if counter, exists := c.requestsByMethod[method]; exists {
+		counter.Inc()
+	}
 
 	// Update error count if status >= 400
 	if statusCode >= 500 {

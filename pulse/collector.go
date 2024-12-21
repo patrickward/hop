@@ -28,6 +28,8 @@ type Collector interface {
 
 	// RecordHTTPRequest records an HTTP request
 	RecordHTTPRequest(method, path string, duration time.Duration, statusCode int)
+	IncrementConcurrentRequests()
+	DecrementConcurrentRequests()
 
 	// GetHandler returns an http.Handler for the metrics endpoint
 

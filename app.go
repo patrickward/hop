@@ -274,13 +274,12 @@ func (a *App) OnShutdown(fn func(context.Context) error) {
 }
 
 // NewResponse creates a new Response instance with the TemplateManager.
-func (a *App) NewResponse(r *http.Request) (*render.Response, error) {
+func (a *App) NewResponse(r *http.Request) *render.Response {
 	if a.tm == nil {
-		return nil, fmt.Errorf("template manager not initialized - this app does not support rendering templates")
+		panic("template manager not initialized - this app does not support rendering templates")
 	}
 
-	resp := render.NewResponse(a.tm).Data(a.NewTemplateData(r))
-	return resp, nil
+	return render.NewResponse(a.tm).Data(a.NewTemplateData(r))
 }
 
 // NewTemplateData returns a map of data that can be used in a Go template, API response, etc.

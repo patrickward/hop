@@ -23,6 +23,8 @@ type Response struct {
 	statusCode int
 	// The title of the page (default: the page name without the extension)
 	title string
+	// The description of the page (default: empty)
+	description string
 	// The triggers to be passed to the response (default: empty)
 	triggers *trigger.Triggers
 	// The view data to be passed to the template (default: ViewData{})
@@ -114,6 +116,11 @@ func (resp *Response) PageTitle() string {
 	return resp.title
 }
 
+// PageDescription returns the page description
+func (resp *Response) PageDescription() string {
+	return resp.description
+}
+
 // StatusCode returns the status code.
 func (resp *Response) StatusCode() int {
 	return resp.statusCode
@@ -164,6 +171,12 @@ func (resp *Response) Errors(msg string, fieldErrors map[string]string) *Respons
 // Title sets the page title
 func (resp *Response) Title(title string) *Response {
 	resp.title = title
+	return resp
+}
+
+// Description sets the page description
+func (resp *Response) Description(description string) *Response {
+	resp.description = description
 	return resp
 }
 

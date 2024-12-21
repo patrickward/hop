@@ -139,9 +139,6 @@ func (tm *TemplateManager) LoadTemplates() error {
 		}
 	}
 
-	// Uncomment to view the template names found
-	//tm.printTemplateNames()
-
 	return nil
 }
 
@@ -169,13 +166,6 @@ func (tm *TemplateManager) loadLayoutsAndPartials() (*template.Template, error) 
 				if err != nil {
 					return err
 				}
-
-				//layoutPath := LayoutsDir + "/*" + tm.extension
-				//_, err := commonTemplates.ParseFS(fsys, layoutPath, fullPath)
-				//
-				//if err != nil {
-				//	return err
-				//}
 			}
 			return nil
 		}
@@ -191,12 +181,12 @@ func (tm *TemplateManager) loadLayoutsAndPartials() (*template.Template, error) 
 	return commonTemplates, nil
 }
 
-//func (tm *TemplateManager) printTemplateNames() {
+//func (tm *TemplateManager) LogTemplateNames() {
 //	for name, tmpl := range tm.templates {
-//		tm.log(logLevelInfo, "Template", slog.String("name", name))
+//		tm.logger.Info("Template", slog.String("name", name))
 //		associatedTemplates := tmpl.Templates()
 //		for _, tmpl := range associatedTemplates {
-//			tm.log(logLevelInfo, "    Partial/Child", slog.String("name", tmpl.Name()))
+//			tm.logger.Info("    Associated", slog.String("name", tmpl.Name()))
 //		}
 //	}
 //}

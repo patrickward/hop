@@ -28,8 +28,8 @@ func NewChain(middleware ...Middleware) Chain {
 // 3. This allows for composing middleware chains easily
 //
 // Example:
-// chain1 := wrap.New(middleware1, middleware2)
-// chain2 := wrap.New(middleware3)
+// chain1 := route.NewChain(middleware1, middleware2)
+// chain2 := route.NewChain(middleware3)
 // combinedChain := chain1.Extend(chain2)
 
 func (c Chain) Extend(chain Chain) Chain {
@@ -42,7 +42,7 @@ func (c Chain) Extend(chain Chain) Chain {
 // 3. This allows for composing middleware chains easily
 //
 // Example:
-// chain := wrap.New(middleware1).Append(middleware2, middleware3)
+// chain := route.NewChain(middleware1).Append(middleware2, middleware3)
 func (c Chain) Append(middleware ...Middleware) Chain {
 	newMid := make([]Middleware, 0, len(c.middlewares)+len(middleware))
 	newMid = append(newMid, c.middlewares...)
@@ -56,7 +56,7 @@ func (c Chain) Append(middleware ...Middleware) Chain {
 //
 //	Example:
 //
-// chain := wrap.New(middleware1, middleware2)
+// chain := route.NewChain(middleware1, middleware2)
 // pipe1 := chain.Then(anotherHandler)
 // pipe2 := chain.Then(yetAnotherHandler)
 func (c Chain) Then(h http.Handler) http.Handler {
@@ -68,7 +68,7 @@ func (c Chain) Then(h http.Handler) http.Handler {
 // it returns a handler that does nothing.
 //
 // Example:
-// chain := wrap.New(middleware1, middleware2)
+// chain := route.NewChain(middleware1, middleware2)
 // pipe1 := chain.ThenFunc(myHandlerFunc)
 // pipe2 : = chain.ThenFunc(anotherHandlerFunc)
 func (c Chain) ThenFunc(fn http.HandlerFunc) http.Handler {
@@ -84,7 +84,7 @@ func (c Chain) ThenFunc(fn http.HandlerFunc) http.Handler {
 // It return the resulting http.Handler. So, it's mostly useful for on-the-fly middleware application.
 //
 // Example:
-// h := wrap.Around(myHandler, middleware1, middleware2) // h is now wrapped with middleware1 and middleware2
+// h := route.Around(myHandler, middleware1, middleware2) // h is now wrapped with middleware1 and middleware2
 func Around(h http.Handler, middleware ...Middleware) http.Handler {
 	if h == nil {
 		h = http.DefaultServeMux
@@ -105,7 +105,7 @@ func Before(h http.Handler, middleware ...Middleware) http.Handler {
 // It returns the resulting http.Handler. This is useful for applying middleware that should run after the main handler
 //
 // Example:
-// h := wrap.After(myHandler, middleware1, middleware2) // h is now wrapped with middleware2 and middleware1, reversed
+// h := route.After(myHandler, middleware1, middleware2) // h is now wrapped with middleware2 and middleware1, reversed
 func After(h http.Handler, middleware ...Middleware) http.Handler {
 	for i := 0; i < len(middleware); i++ {
 		h = middleware[i](h)

@@ -2,6 +2,7 @@ package render
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -9,9 +10,12 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/patrickward/hop/templates"
 )
+
+const defaultFSKey = "DEFAULT_FS"
 
 type Sources map[string]fs.FS
 
@@ -23,7 +27,12 @@ type TemplateManager struct {
 	fileSystemMap map[string]fs.FS
 	logger        *slog.Logger
 	funcMap       template.FuncMap
-	templates     map[string]*template.Template
+	//templates     map[string]*template.Template
+
+	templateCache      sync.Map
+	loadOnce           sync.Once
+	mu                 sync.RWMutex
+	layoutsAndPartials *template.Template
 }
 
 // TemplateManagerOptions are the options for the TemplateManager.
@@ -49,7 +58,6 @@ type TemplateManagerOptions struct {
 // For sources, if the string key is empty or "-", it will be treated as the default file system. Otherwise, it will be prefixed to the template name.
 // e.g., "foo:bar" for a template named "bar" in the "foo" file system.
 func NewTemplateManager(sources Sources, opts TemplateManagerOptions) (*TemplateManager, error) {
-	//funcMap := MergeFuncMaps(opts.Funcs)
 	funcMap := templates.MergeFuncMaps(templates.FuncMap(), opts.Funcs)
 
 	// Set default extension if not provided
@@ -72,17 +80,27 @@ func NewTemplateManager(sources Sources, opts TemplateManagerOptions) (*Template
 		opts.SystemLayout = opts.BaseLayout
 	}
 
+	// Normalize the filesystem map to use our default key
+	normalizedSources := make(Sources)
+	for k, v := range sources {
+		if k == "" || k == "-" {
+			normalizedSources[defaultFSKey] = v
+		} else {
+			normalizedSources[k] = v
+		}
+	}
+
 	tm := &TemplateManager{
-		fileSystemMap: sources,
+		fileSystemMap: normalizedSources,
 		logger:        opts.Logger,
 		baseLayout:    opts.BaseLayout,
 		systemLayout:  opts.SystemLayout,
 		extension:     opts.Extension,
 		funcMap:       funcMap,
-		templates:     make(map[string]*template.Template),
+		templateCache: sync.Map{},
 	}
 
-	return tm, tm.LoadTemplates()
+	return tm, tm.Initialize()
 }
 
 // NewResponse creates a new Response instance with the TemplateManager.
@@ -90,58 +108,100 @@ func (tm *TemplateManager) NewResponse() *Response {
 	return NewResponse(tm)
 }
 
-// LoadTemplates loads the templates from the configured map of file systems and caches them.
-func (tm *TemplateManager) LoadTemplates() error {
-	// Reset the template cache
-	tm.templates = make(map[string]*template.Template)
-
-	layoutsAndPartials, err := tm.loadLayoutsAndPartials()
-	if err != nil {
-		return fmt.Errorf("error loading partials. %w", err)
+// Initialize sets up the template manager and preloads critical templates
+func (tm *TemplateManager) Initialize() error {
+	// Validate extension format
+	if tm.extension == "" {
+		tm.extension = ".html"
+	}
+	if tm.extension[0] != '.' {
+		tm.extension = "." + tm.extension
 	}
 
-	// Recursively process directories from all Sources
-	for fsID, fsys := range tm.fileSystemMap {
-		processDirectory := func(path string, dir fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
+	// Load layouts and partials first - these are needed for all templates
+	var err error
+	tm.layoutsAndPartials, err = tm.loadLayoutsAndPartials()
+	if err != nil {
+		return fmt.Errorf("failed to load layouts and partials: %w", err)
+	}
 
-			if !dir.IsDir() && filepath.Ext(path) == tm.extension {
-				relPath, err := filepath.Rel("", path)
-				if err != nil {
-					return err
-				}
-				pageName := strings.TrimSuffix(relPath, filepath.Ext(relPath))
-				//if fsID != RootFSID {
-				if fsID != "" && fsID != "-" {
-					pageName = fsID + ":" + pageName
-				}
+	// Preload critical system templates with correct extension
+	systemPages := []string{"404", "500", "403", "401", "503"}
+	var systemTemplates []string
+	for _, page := range systemPages {
+		path := tm.viewsPath(SystemDir, page) + tm.extension
+		systemTemplates = append(systemTemplates, path)
+	}
 
-				// Clone the layout and partial templates and parse the page template,
-				// so we can reuse the common templates for variants
-				tmpl, err := template.Must(layoutsAndPartials.Clone()).ParseFS(fsys, path)
-
-				if err != nil {
-					return err
-				}
-
-				tm.templates[pageName] = tmpl
-			}
-			return nil
-		}
-
-		// If the "views" directory exists, parse it.
-		if _, err := fsys.Open(ViewsDir); err == nil {
-			if err := fs.WalkDir(fsys, ViewsDir, processDirectory); err != nil {
-				return err
-			}
+	for _, path := range systemTemplates {
+		if _, err := tm.getTemplate(path); err != nil {
+			// Log but don't fail if a system template is missing
+			tm.logger.Warn("Failed to preload system template",
+				slog.String("path", path),
+				slog.String("error", err.Error()))
 		}
 	}
 
 	return nil
 }
 
+// parseTemplatePath splits a template path into filesystem ID and relative path
+func (tm *TemplateManager) parseTemplatePath(path string) (string, string) {
+	parts := strings.SplitN(path, ":", 2)
+	if len(parts) == 2 {
+		// Handle empty prefix or "-" as default filesystem
+		if parts[0] == "" || parts[0] == "-" {
+			return defaultFSKey, parts[1]
+		}
+		return parts[0], parts[1]
+	}
+	return defaultFSKey, path
+}
+
+// getTemplate gets or loads a template with embedded error handling
+func (tm *TemplateManager) getTemplate(path string) (*template.Template, error) {
+	// Check cache first
+	if tmpl, ok := tm.templateCache.Load(path); ok {
+		return tmpl.(*template.Template), nil
+	}
+
+	// Find the appropriate filesystem and relative path
+	fsID, relPath := tm.parseTemplatePath(path)
+
+	fsys, ok := tm.fileSystemMap[fsID]
+	if !ok {
+		return nil, fmt.Errorf("%w: filesystem not found: %s", ErrTempNotFound, fsID)
+	}
+
+	// If the path doesn't end with the extension, add it
+	if !strings.HasSuffix(relPath, tm.extension) {
+		relPath += tm.extension
+	}
+
+	// Check if the template file exists
+	if _, err := fsys.Open(relPath); err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrTempNotFound, relPath)
+	}
+
+	// Clone and parse the template
+	tm.mu.RLock()
+	tmpl, err := template.Must(tm.layoutsAndPartials.Clone()).ParseFS(fsys, relPath)
+	tm.mu.RUnlock()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrTempParse, err)
+	}
+
+	// Cache the template
+	actual, loaded := tm.templateCache.LoadOrStore(path, tmpl)
+	if loaded {
+		// Another goroutine beat us to it, use their template
+		return actual.(*template.Template), nil
+	}
+
+	return tmpl, nil
+}
+
+// loadLayoutsAndPartials loads the common layouts and partials from the filesystems
 func (tm *TemplateManager) loadLayoutsAndPartials() (*template.Template, error) {
 	commonTemplates := template.New("_common_").Funcs(tm.funcMap)
 
@@ -191,52 +251,77 @@ func (tm *TemplateManager) loadLayoutsAndPartials() (*template.Template, error) 
 //	}
 //}
 
-func (tm *TemplateManager) handleError(w http.ResponseWriter, r *http.Request, err error) {
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
+// render renders a response using the template manager
 func (tm *TemplateManager) render(w http.ResponseWriter, r *http.Request, resp *Response) {
 	path := resp.TemplatePath()
-	tmpl, ok := tm.templates[path]
-	if !ok {
-		tm.handleError(w, r, fmt.Errorf("%w: %s", ErrTempNotFound, resp.TemplatePath()))
-		return
-	}
-
-	// Creating a buffer, so we can capture write errors before we write to the header
-	// Note that layouts are always defined with the same name as the layout file without the extension (e.g. base.html -> base)
-	buf := new(bytes.Buffer)
-	layout := fmt.Sprintf("layout:%s", resp.TemplateLayout())
-	err := tmpl.ExecuteTemplate(buf, layout, resp.ViewData(r).Data())
+	tmpl, err := tm.getTemplate(path)
 	if err != nil {
-		path := tm.viewsPath(SystemDir, "server-error")
-		if resp.TemplatePath() == path {
-			http.Error(w, fmt.Errorf("error executing template: %w", err).Error(), http.StatusInternalServerError)
-		} else {
-			tm.handleError(w, r, fmt.Errorf("error executing template: %w", err))
+		switch {
+		case errors.Is(err, ErrTempNotFound):
+			tm.renderSystemError(w, r, resp, "404", err)
+		case errors.Is(err, ErrTempParse):
+			tm.renderSystemError(w, r, resp, "500", err)
+		default:
+			tm.renderSystemError(w, r, resp, "500", err)
 		}
 		return
 	}
 
-	// Add any additional headers
+	buf := new(bytes.Buffer)
+	layout := fmt.Sprintf("layout:%s", resp.TemplateLayout())
+	err = tmpl.ExecuteTemplate(buf, layout, resp.ViewData(r).Data())
+	if err != nil {
+		tm.renderSystemError(w, r, resp, "500", err)
+		return
+	}
+
+	// Write response
 	for key, value := range resp.Headers() {
 		w.Header().Set(key, value)
 	}
-
-	// Set the status code
 	w.WriteHeader(resp.StatusCode())
-
-	// Write the buffer to the response
-	_, err = buf.WriteTo(w)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if _, err := buf.WriteTo(w); err != nil {
+		tm.logger.Error("Failed to write response",
+			slog.String("path", path),
+			slog.String("error", err.Error()))
 	}
 }
 
+// viewsPath helper function to construct template paths
 func (tm *TemplateManager) viewsPath(path ...string) string {
-	// For each path, append to the ViewsDir, separated by a slash
 	return fmt.Sprintf("%s/%s", ViewsDir, strings.Join(path, "/"))
+}
+
+// renderSystemError handles rendering of system error pages with fallback
+func (tm *TemplateManager) renderSystemError(w http.ResponseWriter, r *http.Request, resp *Response, errorPage string, originalErr error) {
+	// Log the original error
+	tm.logger.Error("Template error",
+		slog.String("path", resp.TemplatePath()),
+		slog.String("error", originalErr.Error()))
+
+	// Try to render the error template
+	errorPath := tm.viewsPath(SystemDir, errorPage)
+	errorTmpl, err := tm.getTemplate(errorPath)
+	if err != nil {
+		// Fallback to basic error response if error template fails
+		http.Error(w, originalErr.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Render the error template
+	resp.Path(errorPath).Status(http.StatusInternalServerError)
+	buf := new(bytes.Buffer)
+	layout := fmt.Sprintf("layout:%s", tm.systemLayout)
+	if err := errorTmpl.ExecuteTemplate(buf, layout, resp.ViewData(r).Data()); err != nil {
+		// Fallback if error template rendering fails
+		http.Error(w, originalErr.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(resp.StatusCode())
+	if _, err := buf.WriteTo(w); err != nil {
+		tm.logger.Error("Failed to write error response",
+			slog.String("path", errorPath),
+			slog.String("error", err.Error()))
+	}
 }

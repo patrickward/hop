@@ -68,7 +68,7 @@ func TestMux(t *testing.T) {
 			expectedAllow:  []string{http.MethodDelete, http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut},
 		},
 		{
-			name: "Middleware execution",
+			name: "MetricsMiddleware execution",
 			setupRoutes: func(m *route.Mux) {
 				m.Use(func(next http.Handler) http.Handler {
 					return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

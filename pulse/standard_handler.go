@@ -1,4 +1,4 @@
-package metrics
+package pulse
 
 import (
 	"embed"
@@ -35,7 +35,7 @@ type presentedMetrics struct {
 
 // Handler returns an http.Handler for the metrics endpoint as an HTML page
 func (c *StandardCollector) Handler() http.Handler {
-	tmpl := template.Must(template.New("metrics").ParseFS(templateFS, "templates/metrics.html"))
+	tmpl := template.Must(template.New("pulse").ParseFS(templateFS, "templates/pulse.html"))
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Force collection of current metrics
@@ -66,7 +66,7 @@ func (c *StandardCollector) Handler() http.Handler {
 
 		w.Header().Set("Content-Type", "text/html")
 		if err := tmpl.Execute(w, data); err != nil {
-			http.Error(w, "Error rendering metrics page: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Error rendering pulse page: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 	})

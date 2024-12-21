@@ -1,8 +1,8 @@
-{{define "metrics"}}
+{{define "pulse"}}
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Metrics - {{.ServerName}}</title>
+        <title>System Pulse - {{.ServerName}}</title>
         <meta charset='utf-8'>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
@@ -241,7 +241,7 @@
         <a href="?format=json" class="raw-link">View Raw JSON</a>
     </div>
 
-    <h1>System Metrics</h1>
+    <h1>System Pulse</h1>
     <div class="timestamp">Last Updated: {{.Timestamp}}</div>
 
     <div class="metric-group">

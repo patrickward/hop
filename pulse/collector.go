@@ -1,5 +1,5 @@
-// Package metrics provides standardized metrics collection for hop applications
-package metrics
+// Package pulse provides standardized metrics collection for hop applications
+package pulse
 
 import (
 	"net/http"

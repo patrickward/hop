@@ -1,6 +1,6 @@
-# Metrics Package
+# Pulse Package
 
-The `metrics` package provides a quick and dirty way to collect and monitor application metrics in Go applications using the hop framework. It includes HTTP middleware for request metrics, memory statistics tracking, and a built-in metrics visualization dashboard. It's not meant to be a full-fledged monitoring solution but rather a simple way to get started with metrics collection. For more advanced use cases, consider using a dedicated monitoring tool like Prometheus or Grafana. 
+The `pulse` package provides a quick and dirty way to collect and monitor application metrics in Go applications using the hop framework. It includes HTTP middleware for request metrics, memory statistics tracking, and a built-in metrics visualization dashboard. It's not meant to be a full-fledged monitoring solution but rather a simple way to get started with metrics collection. For more advanced use cases, consider using a dedicated monitoring tool like Prometheus or Grafana. 
 
 ## Features
 
@@ -16,26 +16,26 @@ The `metrics` package provides a quick and dirty way to collect and monitor appl
 
 ```go
 // Create a new metrics collector
-collector := metrics.NewStandardCollector(
-    metrics.WithServerName("MyApp"),
-    metrics.WithThresholds(metrics.Thresholds{
+collector := pulse.NewStandardCollector(
+    pulse.WithServerName("MyApp"),
+    pulse.WithThresholds(pulse.Thresholds{
         CPUPercent: 80.0,
         MemoryPercent: 85.0,
     }),
 )
 
-// Create and configure the metrics module
-metricsMod := metrics.NewModule(collector, &metrics.Config{
+// Create and configure the pulse module
+pulseMod := pulse.NewModule(collector, &pulse.Config{
     EnablePprof: !app.Config().IsProduction(),
-    MetricsPath: "/metrics",  // Default path
+    PulsePath: "/pulse",  // Default path
     CollectionInterval: 15 * time.Second,  // Default interval
 })
 
 // Register with your application
-app.RegisterModule(metricsMod)
+app.RegisterModule(pulseMod)
 
-// Add the middleware to collect HTTP metrics
-app.Router().Use(metricsMod.Middleware())
+// Add the middleware to collect HTTP pulse
+app.Router().Use(pulseMod.Middleware())
 ```
 
 ## Default Thresholds
@@ -43,7 +43,7 @@ app.Router().Use(metricsMod.Middleware())
 The package comes with pre-configured default thresholds that can be customized:
 
 ```go
-var DefaultThresholds = metrics.Thresholds{
+var DefaultThresholds = pulse.Thresholds{
     CPUPercent:              75.0,  // Warning at 75% CPU usage
     ClientErrorRatePercent:  40.0,  // Higher threshold for 4xx errors
     DiskPercent:             85.0,  // Warning at 85% disk usage
@@ -61,8 +61,8 @@ var DefaultThresholds = metrics.Thresholds{
 You can customize thresholds when creating the collector:
 
 ```go
-collector := metrics.NewStandardCollector(
-    metrics.WithThresholds(metrics.Thresholds{
+collector := pulse.NewStandardCollector(
+    pulse.WithThresholds(pulse.Thresholds{
         CPUPercent: 90.0,                // More lenient CPU threshold
         MemoryPercent: 90.0,             // More lenient memory threshold
         ServerErrorRatePercent: 0.5,     // Stricter error threshold
@@ -71,9 +71,9 @@ collector := metrics.NewStandardCollector(
 )
 ```
 
-## Metrics Dashboard
+## Pulse Dashboard
 
-The metrics dashboard is available at `/metrics` by default (configurable via `MetricsPath`). It provides:
+The pulse dashboard is available at `/pulse` by default (configurable via `PulsePath`). It provides:
 
 ### HTTP Metrics
 - Total request count
@@ -134,7 +134,7 @@ Metrics are displayed with different levels based on their thresholds:
 
 1. **Production Setup**
    ```go
-   metricsMod := metrics.NewModule(collector, &metrics.Config{
+   pulseMod := pulse.NewModule(collector, &pulse.Config{
        EnablePprof: false,  // Disable pprof in production
        CollectionInterval: 30 * time.Second,  // Adjust based on needs
    })
@@ -142,7 +142,7 @@ Metrics are displayed with different levels based on their thresholds:
 
 2. **Development Setup**
    ```go
-   metricsMod := metrics.NewModule(collector, &metrics.Config{
+   pulseMod := pulse.NewModule(collector, &pulse.Config{
        EnablePprof: true,  // Enable debugging tools
        CollectionInterval: 5 * time.Second,  // More frequent updates
    })
@@ -150,7 +150,7 @@ Metrics are displayed with different levels based on their thresholds:
 
 3. **Custom Thresholds**: Adjust thresholds based on your application's characteristics and requirements.
 
-4. **Security**: Consider adding authentication middleware for the metrics endpoint in production environments.
+4. **Security**: Consider adding authentication middleware for the pulse endpoint in production environments.
 
 ## Implementation Details
 
@@ -162,7 +162,7 @@ The package uses:
 
 ## Notes
 
-- The metrics dashboard is designed to be lightweight and doesn't require external dependencies
+- The pulse dashboard is designed to be lightweight and doesn't require external dependencies
 - All metrics are collected in-memory
 - The dashboard uses vanilla JavaScript for auto-refresh functionality
 - Metric collection has minimal performance impact

@@ -378,16 +378,26 @@ func (c *StandardCollector) RecordHTTPRequest(method, path string, duration time
 		c.httpClientErrors.Inc()
 	}
 
-	// Update recent requests
-	atomic.AddUint64(&c.requestsLastMinute, 1)
-
-	// Update per-minute stats if needed
+	// Update recent requests atomically
 	now := time.Now()
 	c.mu.Lock()
+	atomic.AddUint64(&c.requestsLastMinute, 1)
+
+	// Check if we need to reset the counter
 	if now.Sub(c.lastMinuteCheck) >= time.Minute {
-		count := atomic.SwapUint64(&c.requestsLastMinute, 0)
+		count := atomic.SwapUint64(&c.requestsLastMinute, 1) // start a new minute with this request
 		c.recentRequests.Set(float64(count))
 		c.lastMinuteCheck = now
+	} else {
+		// Update the current rate for the partial minutes
+		elapsed := now.Sub(c.lastMinuteCheck).Minutes()
+		// Only update rate if enough time has elapsed to make the calculation meaningful
+		// This avoids artificially high rates when the server is just starting up, there is low traffic, etc.
+		// (after 6 seconds, we have a 10% margin of error)
+		if elapsed > 0.1 {
+			currentRate := float64(atomic.LoadUint64(&c.requestsLastMinute)) / elapsed
+			c.recentRequests.Set(currentRate)
+		}
 	}
 	c.mu.Unlock()
 }

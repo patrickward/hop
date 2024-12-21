@@ -64,10 +64,11 @@ func (m *Module) Init() error {
 }
 
 func (m *Module) RegisterRoutes(router *route.Mux) {
-	// Register metrics endpoint
-	//fmt.Println("Registering metrics endpoint: ", m.config.RoutePath)
+	// The middleware needs to be added at the top level to capture all requests
+	router.Use(m.MetricsMiddleware())
+
+	// Register metrics endpoint, use a group to apply auth middleware if configured
 	router.Group(func(g *route.Group) {
-		g.Use(m.MetricsMiddleware())
 		if m.config.RouteUsername != "" && m.config.RoutePassword != "" {
 			g.Use(m.AuthMiddleware())
 		}

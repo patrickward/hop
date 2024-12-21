@@ -26,8 +26,8 @@ collector := pulse.NewStandardCollector(
 
 // Create and configure the pulse module
 pulseMod := pulse.NewModule(collector, &pulse.Config{
-    EnablePprof: !app.Config().IsProduction(),
-    PulsePath: "/pulse",  // Default path
+    RoutePath: "/pulse",  // Default path
+    EnablePprof: !app.Config().IsProduction(), // Enable pprof in dev mode
     CollectionInterval: 15 * time.Second,  // Default interval
 })
 
@@ -37,6 +37,25 @@ app.RegisterModule(pulseMod)
 // Add the middleware to collect HTTP pulse
 app.Router().Use(pulseMod.Middleware())
 ```
+
+### Using Basic Auth
+
+You can protect the pulse dashboard with basic authentication by setting a username and password:
+
+```go
+// Create and configure the pulse module
+pulseMod := pulse.NewModule(collector, &pulse.Config{
+    RoutePath: "/pulse",  // Default path 
+    RoutePassword: "<username>",    // Optional basic auth password
+    RouteUsername: "<password>",    // Optional basic auth username
+    EnablePprof: !app.Config().IsProduction(), // Enable pprof in dev mode
+    CollectionInterval: 15 * time.Second,  // Default interval
+})
+```
+
+> Note: when using basic auth to protect the pulse dashboard, you must enter both a username and password. If either is missing, the dashboard will not be protected.
+> 
+> Also, make sure to use HTTPS to secure the credentials. 
 
 ## Default Thresholds
 

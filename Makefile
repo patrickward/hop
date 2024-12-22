@@ -39,6 +39,16 @@ lint:
 ## DEVELOPMENT:
 # ==================================================================================== #
 
+## docs: generate the godoc documentation and serve it on localhost:6060
+.PHONY: docs
+docs:
+	@godoc -http=:6060 -notes="BUG|TODO|NOTE|IMPORTANT" -play
+
+## build-readme: generate the README.md file
+.PHONY: build-readme
+build-readme:
+	@go run github.com/posener/goreadme/cmd/goreadme -license LICENSE -o README.md
+
 ## test: run all tests for the project
 .PHONY: test
 test:

@@ -1,43 +1,77 @@
 # Hop - Experimental
 
-`hop` is a light-weight web toolkit for Go that emphasizes simplicity and ease of use. It's my personal
-collection of HTTP helpers and middleware that I've found useful in my projects. It helps me build web applications
-without the complexity of larger frameworks, while attempting to stay close to the standard library.
+⚠️ **EXPERIMENTAL**: This framework is under active development and the API changes frequently. Not recommended for production use unless you're willing to vendor the code.
 
-Why the name `hop`? Because it’s a small, light-weight toolkit that helps me "hop" into web development quickly!
+Hop is an experimental, modular web application framework for Go, designed for building server-side rendered applications with HTMX integration.
 
-## Goals
+## Warning
 
-This is primarily a personal toolkit that works well for my needs - it may or may not be your cup of tea. The goals
-of the project are:
+This is not a general-purpose web framework. It was built for specific use cases and may not suit your needs. Consider using established frameworks like [Chi](https://github.com/go-chi/chi), [Echo](https://echo.labstack.com/), [Gin](https://gin-gonic.com/), or [Fiber](https://gofiber.io/) for production applications.
 
-- Stay close to Go's standard library
-- Keep dependencies minimal
-- Use simple, predictable patterns
-- Have just enough structure to get going quickly
-- Be flexible and extensible
+## Features
 
-## Sub-packages
+- 🧩 Modular architecture with plugin system
+- 📝 Template rendering with layouts and partials
+- 🔄 Built-in HTMX support
+- 📦 Session management
+- 🎯 Event dispatching
+- 🛣️ HTTP routing with middleware
+- 📋 Configuration management
+- 📝 Structured logging
 
-- `chain` - Middleware routines that mostly use the standard library.
-- `conf` - A simple configuration manager that uses the standard library's `encoding/json` package, env variables, and flags.
-- `decode` - A collection of decoding functions for various data types and formats (e.g. forms, json, etc).
-- `log` - A wrapper to set up a logger using the standard library's `slog` package.
-- `render` - A simple view manager for rendering HTML templates. It uses the [html/template](https://pkg.go.dev/html/template) package from the standard library.
-- `serve` - A simple HTTP server with basic routing and middleware support.
-- `sess` - Session management interfaces, helpers, and middleware.
-- `wrap` - A collection of validation functions for various data types.
+## Quick Start
 
+```go
+package main
 
-### Brainstorming future sub-packages
+import (
+    "context"
+    "log"
 
-- `auth` - Authentication and authorization middleware.
-- `cache` - Caching/temporary storage middleware, helpers, and persistent key-value storage.
-- `keep` - A collection of helpers for keeping track of state and data across requests.
-- `mail` - Email sending and receiving helpers.
-- `query` - Database operations and helpers.
-- `save` - File upload and storage helpers.
+    "github.com/patrickward/hop"
+    "github.com/patrickward/hop/conf"
+    "github.com/patrickward/hop/render"
+)
 
-## TODO
+func main() {
+    // Create app configuration
+    cfg := &hop.AppConfig{
+        Config: conf.NewConfig(),
+        TemplateSources: render.Sources{
+            "": embeddedTemplates,  // Your embedded templates
+        },
+    }
 
-- [ ] Add more useful tests
+    // Initialize the app
+    app, err := hop.New(cfg)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Register modules
+    app.RegisterModule(mymodule.New())
+
+    // Start the app
+    if err := app.Start(context.Background()); err != nil {
+        log.Fatal(err)
+    }
+}
+```
+
+## Creating a Module
+
+```go
+type MyModule struct{}
+
+func New() *MyModule {
+    return &MyModule{}
+}
+
+func (m *MyModule) ID() string {
+    return "mymodule"
+}
+
+func (m *MyModule) Init() error {
+    return nil
+}
+```

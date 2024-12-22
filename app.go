@@ -279,7 +279,7 @@ func (a *App) NewResponse(r *http.Request) *render.Response {
 		panic("template manager not initialized - this app does not support rendering templates")
 	}
 
-	return render.NewResponse(a.tm).Data(a.NewTemplateData(r))
+	return render.NewResponse(a.tm).WithData(a.NewTemplateData(r))
 }
 
 // NewTemplateData returns a map of data that can be used in a Go template, API response, etc.

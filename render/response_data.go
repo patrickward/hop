@@ -30,9 +30,9 @@ type ResponseData struct {
 	//csrfToken   string
 }
 
-// NewResponseData creates a new Data instance.
+// NewResponseData creates a new ResponseData instance.
 // If you are using this outside the normal HyperView rendering process, be sure to set the request manually
-// via Data.SetRequest as the request is deliberately set later in the normal rendering flow.
+// via ResponseData.SetRequest as the request is deliberately set later in the normal rendering flow.
 func NewResponseData(pageData map[string]any) *ResponseData {
 	pageData = initData(pageData)
 	return &ResponseData{
@@ -45,7 +45,7 @@ func (v *ResponseData) SetTitle(title string) {
 	v.title = title
 }
 
-// SetRequest sets the request for the Data instance.
+// SetRequest sets the request for the ResponseData instance.
 func (v *ResponseData) SetRequest(r *http.Request) {
 	v.request = r
 }
@@ -75,20 +75,20 @@ func (v *ResponseData) Data() map[string]any {
 	return v.pageData
 }
 
-// AddData adds a map of data to the existing view data model.
-func (v *ResponseData) AddData(data map[string]any) {
+// Merge adds a map of data to the existing view data model.
+func (v *ResponseData) Merge(data map[string]any) {
 	for key, value := range data {
 		v.pageData[key] = value
 	}
 }
 
-// AddDataItem adds a single key-value pair to the existing view data model.
-func (v *ResponseData) AddDataItem(key string, value any) {
+// Set adds a single key-value pair to the existing view data model.
+func (v *ResponseData) Set(key string, value any) {
 	v.pageData[key] = value
 }
 
-// AddErrors adds an error message and a map of field errors to the view data model.
-func (v *ResponseData) AddErrors(msg string, fieldErrors map[string]string) {
+// SetErrors adds an error message and a map of field errors to the view data model.
+func (v *ResponseData) SetErrors(msg string, fieldErrors map[string]string) {
 	v.pageData["Error"] = msg
 	v.pageData["Errors"] = fieldErrors
 }

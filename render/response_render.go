@@ -12,7 +12,7 @@ import (
 // Example: resp.StatusOK().Render(w, r)
 func (resp *Response) Render(w http.ResponseWriter, r *http.Request) {
 	// Enforce a layout if none is set
-	if resp.TemplateLayout() == "" {
+	if resp.GetTemplateLayout() == "" {
 		resp.Layout(resp.tm.baseLayout)
 	}
 	resp.tm.render(w, r, resp)

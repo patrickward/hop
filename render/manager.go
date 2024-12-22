@@ -55,7 +55,7 @@ type TemplateManagerOptions struct {
 
 // NewTemplateManager creates a new TemplateManager.
 // Accepts a map of file systems, a logger, and options for configuration.
-// For sources, if the string key is empty or "-", it will be treated as the default file system. Otherwise, it will be prefixed to the template name.
+// For sources, if the string key is empty or "-", it will be treated as the default file system. Otherwise, the key is used as the file system ID.
 // e.g., "foo:bar" for a template named "bar" in the "foo" file system.
 func NewTemplateManager(sources Sources, opts TemplateManagerOptions) (*TemplateManager, error) {
 	funcMap := templates.MergeFuncMaps(templates.FuncMap(), opts.Funcs)
@@ -253,7 +253,7 @@ func (tm *TemplateManager) loadLayoutsAndPartials() (*template.Template, error) 
 
 // render renders a response using the template manager
 func (tm *TemplateManager) render(w http.ResponseWriter, r *http.Request, resp *Response) {
-	path := resp.TemplatePath()
+	path := resp.GetTemplatePath()
 	tmpl, err := tm.getTemplate(path)
 	if err != nil {
 		switch {
@@ -268,18 +268,18 @@ func (tm *TemplateManager) render(w http.ResponseWriter, r *http.Request, resp *
 	}
 
 	buf := new(bytes.Buffer)
-	layout := fmt.Sprintf("layout:%s", resp.TemplateLayout())
-	err = tmpl.ExecuteTemplate(buf, layout, resp.ViewData(r).Data())
+	layout := fmt.Sprintf("layout:%s", resp.GetTemplateLayout())
+	err = tmpl.ExecuteTemplate(buf, layout, resp.GetData(r).Data())
 	if err != nil {
 		tm.renderSystemError(w, r, resp, "500", err)
 		return
 	}
 
 	// Write response
-	for key, value := range resp.Headers() {
+	for key, value := range resp.GetHeaders() {
 		w.Header().Set(key, value)
 	}
-	w.WriteHeader(resp.StatusCode())
+	w.WriteHeader(resp.GetStatusCode())
 	if _, err := buf.WriteTo(w); err != nil {
 		tm.logger.Error("Failed to write response",
 			slog.String("path", path),
@@ -296,7 +296,7 @@ func (tm *TemplateManager) viewsPath(path ...string) string {
 func (tm *TemplateManager) renderSystemError(w http.ResponseWriter, r *http.Request, resp *Response, errorPage string, originalErr error) {
 	// Log the original error
 	tm.logger.Error("Template error",
-		slog.String("path", resp.TemplatePath()),
+		slog.String("path", resp.GetTemplatePath()),
 		slog.String("error", originalErr.Error()))
 
 	// Try to render the error template
@@ -312,13 +312,13 @@ func (tm *TemplateManager) renderSystemError(w http.ResponseWriter, r *http.Requ
 	resp.Path(errorPath).Status(http.StatusInternalServerError)
 	buf := new(bytes.Buffer)
 	layout := fmt.Sprintf("layout:%s", tm.systemLayout)
-	if err := errorTmpl.ExecuteTemplate(buf, layout, resp.ViewData(r).Data()); err != nil {
+	if err := errorTmpl.ExecuteTemplate(buf, layout, resp.GetData(r).Data()); err != nil {
 		// Fallback if error template rendering fails
 		http.Error(w, originalErr.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(resp.StatusCode())
+	w.WriteHeader(resp.GetStatusCode())
 	if _, err := buf.WriteTo(w); err != nil {
 		tm.logger.Error("Failed to write error response",
 			slog.String("path", errorPath),

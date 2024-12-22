@@ -214,7 +214,7 @@ func TestTemplateManager(t *testing.T) {
 			tm.NewResponse().
 				Layout(tt.layout).
 				Path(tt.page).
-				Data(tt.data.toMap()).
+				WithData(tt.data.toMap()).
 				Title(tt.data.Title).
 				Render(w, req)
 

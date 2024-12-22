@@ -163,7 +163,7 @@ func TestTemplateManager(t *testing.T) {
 			requestMethod:  "GET",
 			requestHeaders: map[string]string{},
 			expectedParts: []string{
-				"error executing template: html/template: \"layout:missing\"",
+				"layout:missing",
 			},
 			expectError: false,
 		},

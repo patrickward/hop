@@ -27,15 +27,15 @@ type Response struct {
 	description string
 	// The triggers to be passed to the response (default: empty)
 	triggers *trigger.Triggers
-	// The view data to be passed to the template (default: ResponseData{})
-	data *ResponseData
+	// The view data to be passed to the template (default: PageData{})
+	data *PageData
 	// The template manager to be used for rendering templates
 	tm *TemplateManager
 }
 
 func NewResponse(tm *TemplateManager) *Response {
 	return &Response{
-		data:       NewResponseData(make(map[string]any)),
+		data:       NewPageData(make(map[string]any)),
 		headers:    map[string]string{},
 		layout:     "",
 		path:       "",
@@ -49,7 +49,7 @@ func NewResponse(tm *TemplateManager) *Response {
 
 // GetData returns the view data model. The request is set here to ensure
 // the request is available in the template and that it is not overwritten until later in the process.
-func (resp *Response) GetData(r *http.Request) *ResponseData {
+func (resp *Response) GetData(r *http.Request) *PageData {
 	resp.data.SetTitle(resp.title)
 	resp.data.SetRequest(r)
 	return resp.data
@@ -126,24 +126,24 @@ func (resp *Response) GetStatusCode() int {
 	return resp.statusCode
 }
 
-// WithResponseData resets the view data model with an existing model. It returns the modified Response pointer.
+// WithPageData resets the view data model with an existing model. It returns the modified Response pointer.
 // The view data model contains data that will be passed to the view template for rendering.
 //
 // Alternatively, you can add the data map and create a new view data model automatically using the WithData function.
 //
 // Important: if you are creating the view data model externally and need to use it before render is called,
-// you should probably set the request via ResponseData.SetRequest, as the request is deliberately set later in
+// you should probably set the request via PageData.SetRequest, as the request is deliberately set later in
 // the rendering process in most cases.
-func (resp *Response) WithResponseData(data *ResponseData) *Response {
+func (resp *Response) WithPageData(data *PageData) *Response {
 	resp.data = data
 	return resp
 }
 
 // WithData creates a new view data model with the provided data map and returns the modified Response pointer.
 // This will overwrite any existing view data model. If you want to add data to an existing view data model, create
-// a new view data model externally using the NewResponseData function and pass it to the WithResponseData function instead.
+// a new view data model externally using the NewPageData function and pass it to the WithPageData function instead.
 func (resp *Response) WithData(data map[string]any) *Response {
-	resp.data = NewResponseData(data)
+	resp.data = NewPageData(data)
 	return resp
 }
 
@@ -159,12 +159,20 @@ func (resp *Response) Data(key string, value any) *Response {
 	return resp
 }
 
-// Errors adds an error message and any field errors to the view data model.
-// This will also set the status code to 422 (Unprocessable Entity)). If that is not correct status code,
-// you should reset it using the Status() function or one of the Status* shortcut functions.
-func (resp *Response) Errors(msg string, fieldErrors map[string]string) *Response {
+// WithError adds an error message to the view data model. This will also set the status code to 422 (Unprocessable Entity)).
+func (resp *Response) WithError(msg string) *Response {
 	resp.statusCode = http.StatusUnprocessableEntity
-	resp.data.SetErrors(msg, fieldErrors)
+	resp.data.Set(PageDataErrorKey, msg)
+	return resp
+}
+
+// WithErrors adds an error message and a map of field errors to the view data model.
+// This will also set the status code to 422 (Unprocessable Entity)).
+// If that is not the desired status code, you should reset it using the Status() function or one of the Status* shortcut functions.
+func (resp *Response) WithErrors(msg string, fieldErrors map[string]string) *Response {
+	resp.statusCode = http.StatusUnprocessableEntity
+	resp.data.Set(PageDataErrorKey, msg)
+	resp.data.Set(PageDataErrorsKey, fieldErrors)
 	return resp
 }
 

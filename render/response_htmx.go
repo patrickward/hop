@@ -135,7 +135,7 @@ func (resp *Response) HxTriggerAfterSwap(event string, value any) *Response {
 
 // HxNonce returns the HTMX nonce value from the request context, if available.
 // This adds the inlineScriptNonce key to a JSON object with the nonce value and can be used in an HTMX meta tag.
-func (v *ResponseData) HxNonce() string {
+func (v *PageData) HxNonce() string {
 	return fmt.Sprintf("{\"includeIndicatorStyles\":false,\"inlineScriptNonce\": \"%s\"}", v.Nonce())
 }
 
@@ -155,11 +155,11 @@ func (resp *Response) HxLayout(r *http.Request, hxLayout, layout string) *Respon
 }
 
 // IsHtmxRequest returns true if the request is an HTMX request, but not a boosted request.
-func (v *ResponseData) IsHtmxRequest() bool {
+func (v *PageData) IsHtmxRequest() bool {
 	return htmx.IsHtmxRequest(v.request)
 }
 
 // IsBoostedRequest returns true if the request is a boosted request.
-func (v *ResponseData) IsBoostedRequest() bool {
+func (v *PageData) IsBoostedRequest() bool {
 	return htmx.IsBoostedRequest(v.request)
 }

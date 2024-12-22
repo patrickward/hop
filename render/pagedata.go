@@ -29,11 +29,9 @@ const (
 //
 //goland:noinspection GoNameStartsWithPackageName
 type PageData struct {
-	title    string
-	request  *http.Request
-	pageData map[string]any
-	//environment string
-	//csrfToken   string
+	title   string
+	request *http.Request
+	data    map[string]any
 }
 
 // NewPageData creates a new PageData instance.
@@ -42,7 +40,7 @@ type PageData struct {
 func NewPageData(pageData map[string]any) *PageData {
 	pageData = initData(pageData)
 	return &PageData{
-		pageData: pageData,
+		data: pageData,
 	}
 }
 
@@ -75,27 +73,28 @@ func initData(data map[string]any) map[string]any {
 }
 
 // Data returns the data map that will be passed to the template.
+// It will include the PageData instance itself as the "Page" key.
 func (v *PageData) Data() map[string]any {
-	v.pageData = initData(v.pageData)
-	v.pageData[PageDataPageKey] = v
-	return v.pageData
+	v.data = initData(v.data)
+	v.data[PageDataPageKey] = v
+	return v.data
 }
 
 // Merge adds a map of data to the existing view data model.
 func (v *PageData) Merge(data map[string]any) {
 	for key, value := range data {
-		v.pageData[key] = value
+		v.data[key] = value
 	}
 }
 
 // Set adds a single key-value pair to the existing view data model.
 func (v *PageData) Set(key string, value any) {
-	v.pageData[key] = value
+	v.data[key] = value
 }
 
 // Get returns the value of the specified key from the view data model.
 func (v *PageData) Get(key string) any {
-	val, ok := v.pageData[key]
+	val, ok := v.data[key]
 	if ok {
 		return val
 	}
@@ -130,11 +129,6 @@ func (v *PageData) HasError() bool {
 	return v.GetString(PageDataErrorKey) != ""
 }
 
-// HasErrors returns true if the view data model contains field errors.
-func (v *PageData) HasErrors() bool {
-	return len(v.Errors()) > 0
-}
-
 // ------ Field Error Helpers --------
 
 // Errors returns a map of field errors from the view data model.
@@ -145,6 +139,11 @@ func (v *PageData) Errors() map[string]string {
 	}
 
 	return map[string]string{}
+}
+
+// HasErrors returns true if the view data model contains field errors.
+func (v *PageData) HasErrors() bool {
+	return len(v.Errors()) > 0
 }
 
 // ErrorFor returns the error message for the specified field from the view data model.

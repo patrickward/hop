@@ -47,9 +47,9 @@ func NewResponse(tm *TemplateManager) *Response {
 	}
 }
 
-// GetData returns the view data model. The request is set here to ensure
+// PageData returns the page data model. The request is set here to ensure
 // the request is available in the template and that it is not overwritten until later in the process.
-func (resp *Response) GetData(r *http.Request) *PageData {
+func (resp *Response) PageData(r *http.Request) *PageData {
 	resp.data.SetTitle(resp.title)
 	resp.data.SetRequest(r)
 	return resp.data

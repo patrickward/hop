@@ -269,7 +269,7 @@ func (tm *TemplateManager) render(w http.ResponseWriter, r *http.Request, resp *
 
 	buf := new(bytes.Buffer)
 	layout := fmt.Sprintf("layout:%s", resp.GetTemplateLayout())
-	err = tmpl.ExecuteTemplate(buf, layout, resp.GetData(r).Data())
+	err = tmpl.ExecuteTemplate(buf, layout, resp.PageData(r).Data())
 	if err != nil {
 		tm.renderSystemError(w, r, resp, "500", err)
 		return
@@ -312,7 +312,7 @@ func (tm *TemplateManager) renderSystemError(w http.ResponseWriter, r *http.Requ
 	resp.Path(errorPath).Status(http.StatusInternalServerError)
 	buf := new(bytes.Buffer)
 	layout := fmt.Sprintf("layout:%s", tm.systemLayout)
-	if err := errorTmpl.ExecuteTemplate(buf, layout, resp.GetData(r).Data()); err != nil {
+	if err := errorTmpl.ExecuteTemplate(buf, layout, resp.PageData(r).Data()); err != nil {
 		// Fallback if error template rendering fails
 		http.Error(w, originalErr.Error(), http.StatusInternalServerError)
 		return

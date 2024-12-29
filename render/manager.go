@@ -108,6 +108,11 @@ func (tm *TemplateManager) NewResponse() *Response {
 	return NewResponse(tm)
 }
 
+// SetErrorTemplate sets the template to use for rendering system errors.
+func (tm *TemplateManager) SetErrorTemplate(layout string) {
+	tm.systemLayout = layout
+}
+
 // Initialize sets up the template manager and preloads critical templates
 func (tm *TemplateManager) Initialize() error {
 	// Validate extension format

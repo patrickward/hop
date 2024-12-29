@@ -12,6 +12,7 @@ This framework is in active development and is currently EXPERIMENTAL.
   - Limited community support and testing
 
 Consider using established frameworks like Chi, Echo, Gin, or Fiber for production applications.
+
 If you decide to use Hop, be prepared to:
   - Handle breaking changes regularly
   - Read and understand the source code
@@ -278,6 +279,11 @@ func New(cfg AppConfig) (*App, error) {
 }
 
 // -----------------------------------------------------------------------------
+
+// SetErrorTemplate sets the template to use for rendering error pages
+func (a *App) SetErrorTemplate(name string) {
+	a.tm.SetErrorTemplate(name)
+}
 
 // Error returns the first error that occurred during initialization
 func (a *App) Error() error {

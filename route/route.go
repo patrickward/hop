@@ -419,3 +419,56 @@ func (m *Mux) ServeFileFrom(urlPath string, fs http.FileSystem, filePath string)
 		http.ServeContent(w, r, filePath, stat.ModTime(), f)
 	})
 }
+
+// Path generates a URL path for a route pattern without parameters.
+func (m *Mux) Path(pattern string) (string, error) {
+	route, exists := m.registry.routes[cleanPattern(pattern)]
+	if !exists {
+		return "", fmt.Errorf("route pattern %q not found", pattern)
+	}
+
+	if len(route.ParamNames) > 0 {
+		return "", fmt.Errorf("route pattern %q requires parameters - use PathWithParams instead", pattern)
+	}
+
+	return route.Pattern, nil
+}
+
+// MustPath is like Path but panics if the route doesn't exist.
+// It should only be used for routes without parameters.
+func (m *Mux) MustPath(pattern string) string {
+	path, err := m.Path(pattern)
+	if err != nil {
+		panic(fmt.Sprintf("failed to build path: %v", err))
+	}
+	return path
+}
+
+// PathWithParams generates a URL path for a route pattern with parameters.
+func (m *Mux) PathWithParams(pattern string, params map[string]string) (string, error) {
+	route, exists := m.registry.routes[cleanPattern(pattern)]
+	if !exists {
+		return "", fmt.Errorf("route pattern %q not found", pattern)
+	}
+	return route.BuildPath(params)
+}
+
+// MustPathWithParams is like PathWithParams but panics if the route doesn't exist
+// or if required parameters are missing.
+func (m *Mux) MustPathWithParams(pattern string, params map[string]string) string {
+	path, err := m.PathWithParams(pattern, params)
+	if err != nil {
+		panic(fmt.Sprintf("failed to build path: %v", err))
+	}
+	return path
+}
+
+// VerifyRoute checks if a route pattern exists and supports the given method
+func (m *Mux) VerifyRoute(pattern, method string) bool {
+	route, exists := m.registry.routes[cleanPattern(pattern)]
+	if !exists {
+		return false
+	}
+	_, methodAllowed := route.Methods[method]
+	return methodAllowed
+}

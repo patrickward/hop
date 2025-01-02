@@ -8,10 +8,18 @@ import (
 
 // Group represents a collection of routes with a common prefix and middleware
 type Group struct {
-	mux        *Mux
-	prefix     string
-	middleware Chain
-	parent     *Group // Track parent group for middleware inheritance
+	mux         *Mux
+	prefix      string
+	middleware  Chain
+	parent      *Group // Track parent group for middleware inheritance
+	independent bool   // If true, this group will not inherit middleware from parent
+}
+
+// Independent marks the group as independent, meaning it will not inherit middleware from the parent
+func (g *Group) Independent() *Group {
+	g.independent = true
+	g.middleware = NewChain() // Clear middleware and start fresh
+	return g
 }
 
 // HandleFunc registers a handler without method restrictions
@@ -66,6 +74,12 @@ func (g *Group) Head(pattern string, handler http.Handler) {
 
 // getMiddlewareChain returns all middleware in the chain from root to this group
 func (g *Group) getMiddlewareChain() Chain {
+	// If this group is independent, return only this group's middleware
+	if g.independent {
+		return g.middleware
+	}
+
+	// If this group is the root, combine mux middleware with this group's middleware
 	if g.parent == nil {
 		// Base case: combine mux middleware with this group's middleware
 		return g.mux.middleware.Extend(g.middleware)
@@ -97,11 +111,14 @@ func (g *Group) handle(pattern string, handler http.Handler) {
 		fullPattern = method + " " + fullPattern
 	}
 
-	// Get the combined middleware chain
-	chain := g.getMiddlewareChain()
-
-	// Apply all middleware from outside in
-	h := chain.Then(handler)
+	// Get the combined middleware chain based on independence
+	var h http.Handler
+	if g.independent {
+		h = g.middleware.Then(handler)
+	} else {
+		// For non-independent groups, apply all middleware from outside in
+		h = g.getMiddlewareChain().Then(handler)
+	}
 
 	// Register with parent mux
 	g.mux.ServeMux.Handle(fullPattern, h)

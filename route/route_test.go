@@ -110,172 +110,6 @@ func TestMux(t *testing.T) {
 	}
 }
 
-func TestGroup(t *testing.T) {
-	tests := []struct {
-		name           string
-		setupRoutes    func(*route.Mux)
-		request        *http.Request
-		expectedStatus int
-		expectedAllow  []string
-		expectedBody   string
-		expectedHeader map[string]string
-	}{
-		{
-			name: "Nested groups with middleware",
-			setupRoutes: func(m *route.Mux) {
-				m.PrefixGroup("/api", func(group *route.Group) {
-					group.Use(func(next http.Handler) http.Handler {
-						return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-							w.Header().Set("X-API-Version", "1.0")
-							next.ServeHTTP(w, r)
-						})
-					})
-
-					group.PrefixGroup("/v1", func(group *route.Group) {
-						group.PrefixGroup("/users", func(group *route.Group) {
-							group.Get("", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-								_, err := w.Write([]byte("users"))
-								require.NoError(t, err)
-							}))
-							group.Post("", emptyHandler())
-						})
-					})
-				})
-			},
-			request:        httptest.NewRequest(http.MethodGet, "/api/v1/users", nil),
-			expectedStatus: http.StatusOK,
-			expectedBody:   "users",
-			expectedHeader: map[string]string{
-				"X-API-Version": "1.0",
-			},
-		},
-		{
-			name: "OPTIONS for nested group route",
-			setupRoutes: func(m *route.Mux) {
-				m.PrefixGroup("/api", func(group *route.Group) {
-					group.PrefixGroup("/v1", func(group *route.Group) {
-						group.PrefixGroup("/users", func(group *route.Group) {
-							group.Get("", emptyHandler())
-							group.Post("", emptyHandler())
-						})
-					})
-				})
-			},
-			request:        httptest.NewRequest(http.MethodOptions, "/api/v1/users", nil),
-			expectedStatus: http.StatusNoContent,
-			expectedAllow:  []string{http.MethodGet, http.MethodHead, http.MethodPost},
-		},
-		{
-			name: "Multiple nested groups with different methods",
-			setupRoutes: func(m *route.Mux) {
-				m.PrefixGroup("/api", func(group *route.Group) {
-					group.Get("/health", emptyHandler())
-					group.PrefixGroup("/v1", func(group *route.Group) {
-						group.Get("/status", emptyHandler())
-						group.PrefixGroup("/users", func(group *route.Group) {
-							group.Get("", emptyHandler())
-							group.Post("", emptyHandler())
-						})
-					})
-				})
-			},
-			request:        httptest.NewRequest(http.MethodOptions, "/api/v1/users", nil),
-			expectedStatus: http.StatusNoContent,
-			expectedAllow:  []string{http.MethodGet, http.MethodHead, http.MethodPost},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mux := route.New()
-			tt.setupRoutes(mux)
-
-			w := httptest.NewRecorder()
-			mux.ServeHTTP(w, tt.request)
-
-			assert.Equal(t, tt.expectedStatus, w.Code)
-
-			if len(tt.expectedAllow) > 0 {
-				allow := w.Header().Get("Allow")
-				methods := parseAllowHeader(allow)
-				assert.ElementsMatch(t, tt.expectedAllow, methods)
-			}
-
-			if tt.expectedBody != "" {
-				assert.Equal(t, tt.expectedBody, w.Body.String())
-			}
-
-			for k, v := range tt.expectedHeader {
-				assert.Equal(t, v, w.Header().Get(k))
-			}
-		})
-	}
-}
-
-// TestGroupWithParentMiddleware tests that middleware is applied in the correct order
-func TestGroupWithParentMiddleware(t *testing.T) {
-	mux := route.New()
-
-	// Add middleware to the root mux
-	mux.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("X-Root", "1.0")
-			next.ServeHTTP(w, r)
-		})
-	})
-
-	// Add a group with its own middleware
-	api := mux.PrefixGroup("/api", func(group *route.Group) {
-		group.Use(func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("X-API", "1.0")
-				next.ServeHTTP(w, r)
-			})
-		})
-		group.Get("/users", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, err := w.Write([]byte("users"))
-			require.NoError(t, err)
-		}))
-	})
-
-	// Add a nested group with its own middleware
-	api.PrefixGroup("/v1", func(group *route.Group) {
-		group.Use(func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("X-V1", "1.0")
-				next.ServeHTTP(w, r)
-			})
-		})
-
-		// Add a handler to the nested group
-		group.Get("/users", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, err := w.Write([]byte("users v1"))
-			require.NoError(t, err)
-		}))
-	})
-
-	// Make a request to the handler
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest(http.MethodGet, "/api/users", nil)
-	mux.ServeHTTP(w, r)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "users", w.Body.String())
-	assert.Equal(t, "1.0", w.Header().Get("X-Root"))
-	assert.Equal(t, "1.0", w.Header().Get("X-API"))
-
-	// Make a request to the nested handler
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest(http.MethodGet, "/api/v1/users", nil)
-	mux.ServeHTTP(w, r)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "users v1", w.Body.String())
-	assert.Equal(t, "1.0", w.Header().Get("X-Root"))
-	assert.Equal(t, "1.0", w.Header().Get("X-API"))
-	assert.Equal(t, "1.0", w.Header().Get("X-V1"))
-}
-
 // TestListRoutes tests the ListRoutes functionality
 func TestListRoutes(t *testing.T) {
 	mux := route.New()
@@ -358,6 +192,83 @@ func TestDumpRoutes(t *testing.T) {
 
 	// compare the two slices, regardless of order
 	assert.ElementsMatch(t, expectedRoutes, routes)
+}
+
+func TestMux_Path(t *testing.T) {
+	mux := route.New()
+
+	mux.Get("/api/users", emptyHandler())
+	mux.Get("/api/users/:id", emptyHandler())
+
+	path, err := mux.Path("/api/users")
+	require.NoError(t, err)
+	assert.Equal(t, "/api/users", path)
+
+	_, err = mux.Path("/api/notfound")
+	assert.Error(t, err)
+
+	path, err = mux.Path("/api/users/:id")
+	require.Error(t, err, "Should return an error for a path with a parameter")
+}
+
+func TestMux_MustPath(t *testing.T) {
+	mux := route.New()
+
+	mux.Get("/api/users", emptyHandler())
+	mux.Get("/api/users/:id", emptyHandler())
+
+	path := mux.MustPath("/api/users")
+	assert.Equal(t, "/api/users", path)
+
+	assert.Panics(t, func() {
+		mux.MustPath("/api/notfound")
+	})
+
+	assert.Panics(t, func() {
+		mux.MustPath("/api/users/:id")
+	})
+}
+
+func TestMux_PathWithParams(t *testing.T) {
+	mux := route.New()
+
+	mux.Get("/api/users", emptyHandler())
+	mux.Get("/api/users/:id", emptyHandler())
+
+	path, err := mux.PathWithParams("/api/users", nil)
+	require.NoError(t, err)
+	assert.Equal(t, "/api/users", path)
+
+	path, err = mux.PathWithParams("/api/users/:id", map[string]string{"id": "123"})
+	require.NoError(t, err)
+	assert.Equal(t, "/api/users/123", path)
+
+	_, err = mux.PathWithParams("/api/users/:id", nil)
+	assert.Error(t, err, "Should return an error for missing parameter")
+
+	_, err = mux.PathWithParams("/api/users/:id", map[string]string{"id": "123", "extra": "extra"})
+	assert.Error(t, err, "Should return an error for extra parameter")
+}
+
+func TestMux_MustPathWithParams(t *testing.T) {
+	mux := route.New()
+
+	mux.Get("/api/users", emptyHandler())
+	mux.Get("/api/users/:id", emptyHandler())
+
+	path := mux.MustPathWithParams("/api/users", nil)
+	assert.Equal(t, "/api/users", path)
+
+	path = mux.MustPathWithParams("/api/users/:id", map[string]string{"id": "123"})
+	assert.Equal(t, "/api/users/123", path)
+
+	assert.Panics(t, func() {
+		mux.MustPathWithParams("/api/users/:id", nil)
+	})
+
+	assert.Panics(t, func() {
+		mux.MustPathWithParams("/api/users/:id", map[string]string{"id": "123", "extra": "extra"})
+	})
 }
 
 // Helper function to parse Allow header

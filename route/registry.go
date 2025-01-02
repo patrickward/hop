@@ -1,9 +1,12 @@
 package route
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
 	"path"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -11,8 +14,28 @@ var emptyStruct = struct{}{}
 
 // Route stores information about registered routes
 type Route struct {
-	Pattern string
-	Methods map[string]struct{}
+	Pattern    string              // Original pattern
+	Methods    map[string]struct{} // Allowed methods
+	ParamNames []string            // Names of parameters in the pattern
+}
+
+// BuildPath generates a URL path from the pattern and parameters
+func (r *Route) BuildPath(params map[string]string) (string, error) {
+	p := r.Pattern
+
+	if len(r.ParamNames) != len(params) {
+		return "", fmt.Errorf("incorrect number of parameters")
+	}
+
+	for _, name := range r.ParamNames {
+		value, ok := params[name]
+		if !ok {
+			return "", fmt.Errorf("missing parameter %q", name)
+		}
+		p = strings.Replace(p, ":"+name, url.PathEscape(value), 1)
+	}
+
+	return p, nil
 }
 
 // routeRegistry tracks all registered routes and their allowed methods
@@ -58,21 +81,30 @@ func (rr *routeRegistry) register(pattern, method string) {
 
 	cleanPath := cleanPattern(pattern)
 
-	info, exists := rr.routes[cleanPath]
+	route, exists := rr.routes[cleanPath]
 	if !exists {
-		info = &Route{
-			Pattern: pattern,
-			Methods: make(map[string]struct{}, 4),
+		paramNames := []string{}
+		parts := strings.Split(cleanPath, "/")
+		for _, part := range parts {
+			if strings.HasPrefix(part, ":") {
+				paramNames = append(paramNames, part[1:])
+			}
 		}
-		rr.routes[cleanPath] = info
+
+		route = &Route{
+			Pattern:    pattern,
+			Methods:    make(map[string]struct{}, 4),
+			ParamNames: paramNames,
+		}
+		rr.routes[cleanPath] = route
 	}
 
 	// Register the explicit method
-	info.Methods[method] = emptyStruct
+	route.Methods[method] = emptyStruct
 
 	// If registering GET, automatically support HEAD
 	if method == http.MethodGet {
-		info.Methods[http.MethodHead] = emptyStruct
+		route.Methods[http.MethodHead] = emptyStruct
 	}
 
 	// Invalidate the cache for this pattern

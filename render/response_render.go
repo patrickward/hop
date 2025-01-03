@@ -20,27 +20,27 @@ func (resp *Response) Render(w http.ResponseWriter, r *http.Request) {
 
 // RenderUnauthorized renders the 401 Unauthorized page
 func (resp *Response) RenderUnauthorized(w http.ResponseWriter, r *http.Request) {
-	resp.tm.renderSystemError(w, r, resp, "401", fmt.Errorf("unauthorized"))
+	resp.tm.renderSystemError(w, r, resp, http.StatusUnauthorized, fmt.Errorf("unauthorized"))
 }
 
 // RenderForbidden renders the 403 Forbidden page
 func (resp *Response) RenderForbidden(w http.ResponseWriter, r *http.Request) {
-	resp.tm.renderSystemError(w, r, resp, "403", fmt.Errorf("forbidden"))
+	resp.tm.renderSystemError(w, r, resp, http.StatusForbidden, fmt.Errorf("forbidden"))
 }
 
 // RenderMethodNotAllowed renders the 405 Method Not Allowed page
 func (resp *Response) RenderMethodNotAllowed(w http.ResponseWriter, r *http.Request) {
-	resp.tm.renderSystemError(w, r, resp, "405", fmt.Errorf("method not allowed"))
+	resp.tm.renderSystemError(w, r, resp, http.StatusMethodNotAllowed, fmt.Errorf("method not allowed"))
 }
 
 // RenderNotFound renders the 404 Not Found page
 func (resp *Response) RenderNotFound(w http.ResponseWriter, r *http.Request) {
-	resp.tm.renderSystemError(w, r, resp, "404", fmt.Errorf("not found"))
+	resp.tm.renderSystemError(w, r, resp, http.StatusNotFound, fmt.Errorf("not found"))
 }
 
 // RenderMaintenance renders the 503 Service Unavailable page
 func (resp *Response) RenderMaintenance(w http.ResponseWriter, r *http.Request) {
-	resp.tm.renderSystemError(w, r, resp, "503", fmt.Errorf("service Unavailable"))
+	resp.tm.renderSystemError(w, r, resp, http.StatusServiceUnavailable, fmt.Errorf("service Unavailable"))
 }
 
 // RenderSystemError renders the 500 Internal Server Error page
@@ -61,5 +61,5 @@ func (resp *Response) RenderSystemError(w http.ResponseWriter, r *http.Request, 
 	}
 
 	// If there is a template with the name "system/server_error" in the template cache, use it
-	resp.tm.renderSystemError(w, r, resp, "500", fmt.Errorf("internal server error: %s\n%s", err.Error(), lineErrors))
+	resp.tm.renderSystemError(w, r, resp, http.StatusInternalServerError, fmt.Errorf("internal server error: %s\n%s", err.Error(), lineErrors))
 }

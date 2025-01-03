@@ -263,11 +263,11 @@ func (tm *TemplateManager) render(w http.ResponseWriter, r *http.Request, resp *
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrTempNotFound):
-			tm.renderSystemError(w, r, resp, "404", err)
+			tm.renderSystemError(w, r, resp, 404, err)
 		case errors.Is(err, ErrTempParse):
-			tm.renderSystemError(w, r, resp, "500", err)
+			tm.renderSystemError(w, r, resp, 500, err)
 		default:
-			tm.renderSystemError(w, r, resp, "500", err)
+			tm.renderSystemError(w, r, resp, 500, err)
 		}
 		return
 	}
@@ -276,7 +276,7 @@ func (tm *TemplateManager) render(w http.ResponseWriter, r *http.Request, resp *
 	layout := fmt.Sprintf("layout:%s", resp.GetTemplateLayout())
 	err = tmpl.ExecuteTemplate(buf, layout, resp.PageData(r).Data())
 	if err != nil {
-		tm.renderSystemError(w, r, resp, "500", err)
+		tm.renderSystemError(w, r, resp, 500, err)
 		return
 	}
 
@@ -297,15 +297,33 @@ func (tm *TemplateManager) viewsPath(path ...string) string {
 	return fmt.Sprintf("%s/%s", ViewsDir, strings.Join(path, "/"))
 }
 
+// errorPageFromStatus returns the error page name based on the HTTP status code
+func errorPageFromStatus(status int) string {
+	switch status {
+	case http.StatusUnauthorized:
+		return "401"
+	case http.StatusForbidden:
+		return "403"
+	case http.StatusMethodNotAllowed:
+		return "405"
+	case http.StatusNotFound:
+		return "404"
+	case http.StatusServiceUnavailable:
+		return "503"
+	default:
+		return "500"
+	}
+}
+
 // renderSystemError handles rendering of system error pages with fallback
-func (tm *TemplateManager) renderSystemError(w http.ResponseWriter, r *http.Request, resp *Response, errorPage string, originalErr error) {
+func (tm *TemplateManager) renderSystemError(w http.ResponseWriter, r *http.Request, resp *Response, status int, originalErr error) {
 	// Log the original error
 	tm.logger.Error("Template error",
 		slog.String("path", resp.GetTemplatePath()),
 		slog.String("error", originalErr.Error()))
 
 	// Try to render the error template
-	errorPath := tm.viewsPath(SystemDir, errorPage)
+	errorPath := tm.viewsPath(SystemDir, errorPageFromStatus(status))
 	errorTmpl, err := tm.getTemplate(errorPath)
 	if err != nil {
 		// Fallback to basic error response if error template fails
@@ -314,7 +332,7 @@ func (tm *TemplateManager) renderSystemError(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Render the error template
-	resp.Path(errorPath).Status(http.StatusInternalServerError)
+	resp.Path(errorPath).Status(status)
 	buf := new(bytes.Buffer)
 	layout := fmt.Sprintf("layout:%s", tm.systemLayout)
 	if err := errorTmpl.ExecuteTemplate(buf, layout, resp.PageData(r).Data()); err != nil {

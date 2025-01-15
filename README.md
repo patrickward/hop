@@ -4,6 +4,8 @@
 
 Hop is an experimental, modular web application framework for Go, designed for building server-side rendered applications with HTMX integration.
 
+> This is more of a test bed for ideas than a production-ready framework. Use at your own risk.
+
 ## Warning
 
 This is not a general-purpose web framework. It was built for specific use cases and may not suit your needs. Consider using established frameworks like [Chi](https://github.com/go-chi/chi), [Echo](https://echo.labstack.com/), [Gin](https://gin-gonic.com/), or [Fiber](https://gofiber.io/) for production applications.

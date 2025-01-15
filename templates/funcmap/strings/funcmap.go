@@ -40,7 +40,7 @@ func ToString(i any) string {
 }
 
 // Truncate truncates a string to a specified length and appends "..." if longer
-func Truncate(s string, length int) string {
+func Truncate(length int, s string) string {
 	if len(s) <= length {
 		return s
 	}

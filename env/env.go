@@ -4,6 +4,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // GetString returns the value of the environment variable key or defaultValue if it does not exist
@@ -47,10 +48,10 @@ func GetBool(key string, defaultValue bool) bool {
 }
 
 // GetStringSlice returns the value of the environment variable key as a slice of strings or defaultValue if it does not exist
-func GetStringSlice(key, defaultValue string) []string {
+func GetStringSlice(key string, defaultValue []string) []string {
 	value, exists := os.LookupEnv(key)
 	if !exists {
-		return []string{defaultValue}
+		return defaultValue
 	}
 
 	var cleanedValues []string
@@ -61,4 +62,19 @@ func GetStringSlice(key, defaultValue string) []string {
 	}
 
 	return cleanedValues
+}
+
+// GetDuration returns the value of the environment variable key as a duration or defaultValue if it does not exist
+func GetDuration(key string, duration time.Duration) time.Duration {
+	value, exists := os.LookupEnv(key)
+	if !exists {
+		return duration
+	}
+
+	d, err := time.ParseDuration(value)
+	if err != nil {
+		panic(err)
+	}
+
+	return d
 }

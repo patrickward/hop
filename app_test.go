@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/patrickward/hop"
-	"github.com/patrickward/hop/conf"
 	"github.com/patrickward/hop/route"
 )
 
@@ -450,14 +449,7 @@ func createTestApp(t *testing.T) (*hop.App, error) {
 	t.Helper()
 
 	cfg := hop.AppConfig{
-		Config: &conf.HopConfig{
-			App: conf.AppConfig{
-				Environment: "test",
-			},
-			Server: conf.ServerConfig{
-				Port: 4444,
-			},
-		},
+		Port: 4444,
 	}
 	return hop.New(cfg)
 }
@@ -663,7 +655,7 @@ func TestFullServerStart(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Test server is running
-	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/health", app.Config().Server.Port))
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/health", app.Port()))
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode) // Or whatever status you expect
 

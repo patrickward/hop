@@ -14,7 +14,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/patrickward/hop/conf"
 	"github.com/patrickward/hop/route"
 )
 
@@ -23,46 +22,60 @@ import (
 type DataFunc func(r *http.Request, data *map[string]any)
 
 type Server struct {
-	config     *conf.HopConfig
-	onShutdown func(context.Context) error
-	httpServer *http.Server
-	logger     *slog.Logger
-	router     *route.Mux
-	wg         *sync.WaitGroup
-	stopChan   chan struct{}
-	stopping   sync.Once
+	address         string
+	idleTimeout     time.Duration
+	readTimeout     time.Duration
+	writeTimeout    time.Duration
+	shutdownTimeout time.Duration
+	onShutdown      func(context.Context) error
+	httpServer      *http.Server
+	logger          *slog.Logger
+	router          *route.Mux
+	wg              *sync.WaitGroup
+	stopChan        chan struct{}
+	stopping        sync.Once
+}
+
+type Config struct {
+	Address         string
+	IdleTimeout     time.Duration
+	ReadTimeout     time.Duration
+	WriteTimeout    time.Duration
+	ShutdownTimeout time.Duration
+	Router          *route.Mux
+	Logger          *slog.Logger
 }
 
 // NewServer creates a new server with the given configuration and logger.
-func NewServer(config *conf.HopConfig, logger *slog.Logger, router *route.Mux) *Server {
-	if router == nil {
-		router = route.New()
+func NewServer(cfg Config) *Server {
+	if cfg.Router == nil {
+		cfg.Router = route.New()
 	}
 
 	httpServer := &http.Server{
-		Addr:         fmt.Sprintf(":%d", config.Server.Port),
-		Handler:      router,
-		ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelWarn),
-		IdleTimeout:  config.Server.IdleTimeout.Duration,
-		ReadTimeout:  config.Server.ReadTimeout.Duration,
-		WriteTimeout: config.Server.WriteTimeout.Duration,
+		//Addr:         fmt.Sprintf(":%d", config.Server.Port),
+		Addr:         cfg.Address,
+		Handler:      cfg.Router,
+		ErrorLog:     slog.NewLogLogger(cfg.Logger.Handler(), slog.LevelWarn),
+		IdleTimeout:  cfg.IdleTimeout,
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
 	}
 
 	srv := &Server{
-		config:     config,
-		httpServer: httpServer,
-		logger:     logger,
-		router:     router,
-		wg:         &sync.WaitGroup{},
-		stopChan:   make(chan struct{}),
+		address:         cfg.Address,
+		idleTimeout:     cfg.IdleTimeout,
+		readTimeout:     cfg.ReadTimeout,
+		writeTimeout:    cfg.WriteTimeout,
+		shutdownTimeout: cfg.ShutdownTimeout,
+		httpServer:      httpServer,
+		logger:          cfg.Logger,
+		router:          cfg.Router,
+		wg:              &sync.WaitGroup{},
+		stopChan:        make(chan struct{}),
 	}
 
 	return srv
-}
-
-// Config returns the server configuration.
-func (s *Server) Config() *conf.HopConfig {
-	return s.config
 }
 
 // Logger returns the logger for the server.
@@ -100,98 +113,6 @@ func (s *Server) BackgroundTask(r *http.Request, fn func() error) {
 		}
 	}()
 }
-
-// Start starts the server and listens for incoming requests. It will block until the server is shut down.
-//func (s *Server) Start() error {
-//	ctx, stop := signal.NotifyContext(context.Background(),
-//		syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-//	defer stop()
-//
-//	// Crete errgroup with signal context
-//	eg, gCtx := errgroup.WithContext(ctx)
-//
-//	// Start HTTP server
-//	eg.Go(func() error {
-//		s.logger.Info("starting server",
-//			slog.Group("server", slog.String("addr", s.httpServer.Addr)))
-//
-//		if err := s.httpServer.ListenAndServe(); err != nil &&
-//			!errors.Is(err, http.ErrServerClosed) {
-//			return fmt.Errorf("server error: %w", err)
-//		}
-//		return nil
-//	})
-//
-//	// Graceful shutdown handler
-//	eg.Go(func() error {
-//		<-gCtx.Done()
-//
-//		s.logger.Info("initiating graceful shutdown",
-//			slog.String("cause", gCtx.Err().Error()))
-//
-//		// Split the shutdown timeout between WaitGroup and server shutdown
-//		totalTimeout := s.config.Server.ShutdownTimeout.Duration
-//		wgTimeout := totalTimeout / 2
-//		serverTimeout := totalTimeout - wgTimeout
-//
-//		// Create a channel to signal WaitGroup completion
-//		wgDone := make(chan struct{})
-//
-//		// Wait for background tasks in a separate goroutine
-//		go func() {
-//			s.logger.Info("waiting for background tasks to complete",
-//				slog.Duration("timeout", wgTimeout))
-//			s.wg.Wait()
-//			close(wgDone)
-//		}()
-//
-//		// Create context for WaitGroup timeout
-//		wgCtx, wgCancel := context.WithTimeout(context.Background(), wgTimeout)
-//		defer wgCancel()
-//
-//		// Wait for either WaitGroup completion or timeout
-//		select {
-//		case <-wgDone:
-//			s.logger.Info("all background tasks completed")
-//		case <-wgCtx.Done():
-//			s.logger.Warn("timeout waiting for background tasks",
-//				slog.Duration("elapsed", wgTimeout))
-//		}
-//
-//		// Create context for server shutdown
-//		shutdownCtx, shutdownCancel := context.WithTimeout(
-//			context.Background(),
-//			serverTimeout,
-//		)
-//		defer shutdownCancel()
-//
-//		// Call onShutdown handler if registered
-//		if s.onShutdown != nil {
-//			if err := s.onShutdown(shutdownCtx); err != nil {
-//				s.logger.Error("onShutdown error", slog.String("error", err.Error()))
-//			}
-//		}
-//
-//		s.logger.Info("shutting down http server",
-//			slog.Duration("timeout", serverTimeout))
-//
-//		// Proceed with server shutdown
-//		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
-//			return fmt.Errorf("shutdown error: %w", err)
-//		}
-//
-//		return nil
-//	})
-//
-//	// Wait for all errgroup goroutines to complete or error
-//	if err := eg.Wait(); err != nil &&
-//		!errors.Is(err, context.Canceled) {
-//		return fmt.Errorf("server error: %w", err)
-//	}
-//
-//	s.logger.Info("server exited")
-//	return nil
-//}
 
 // Start starts the server and listens for incoming requests. It will block until the server is shut down.
 func (s *Server) Start() error {
@@ -239,7 +160,7 @@ func (s *Server) Start() error {
 		s.logger.Info("initiating graceful shutdown")
 
 		// Split the shutdown timeout between WaitGroup and server shutdown
-		totalTimeout := s.config.Server.ShutdownTimeout.Duration
+		totalTimeout := s.shutdownTimeout
 		wgTimeout := totalTimeout / 2
 		serverTimeout := totalTimeout - wgTimeout
 

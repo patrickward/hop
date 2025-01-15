@@ -169,7 +169,6 @@ import (
 	"github.com/alexedwards/scs/v2"
 	"github.com/justinas/nosurf"
 
-	"github.com/patrickward/hop/conf"
 	"github.com/patrickward/hop/dispatch"
 	"github.com/patrickward/hop/log"
 	"github.com/patrickward/hop/render"
@@ -187,10 +186,28 @@ type OnTemplateDataFunc func(r *http.Request, data *map[string]any)
 // It allows customization of core framework components including logging,
 // template rendering, session management, and I/O configuration.
 type AppConfig struct {
-	// Config holds the application's configuration settings
-	Config *conf.HopConfig
+	// Host is the host address to bind the server to (default: "" - all interfaces)
+	Host string
+	// Port is the port to bind the server to (default: 8080)
+	Port int
+	// IdleTimeout is the maximum amount of time to wait for the next request when keep-alives are enabled (default: 120s)
+	IdleTimeout time.Duration
+	// ReadTimeout is the maximum duration before timing out read of the request (default: 5s)
+	ReadTimeout time.Duration
+	// WriteTimeout is the maximum duration before timing out write of the response (default: 10s)
+	WriteTimeout time.Duration
+	// ShutdownTimeout is the maximum duration before timing out server shutdown (default: 10s)
+	ShutdownTimeout time.Duration
 	// Logger is the application's logging instance. If nil, a default logger will be created based on the configuration
 	Logger *slog.Logger
+	// LogFormat is the format for log output (default: "pretty")
+	LogFormat string
+	// LogIncludeTime determines whether to include timestamps in log output (default: false)
+	LogIncludeTime bool
+	// LogLevel is the log level for the logger (default: "debug")
+	LogLevel string
+	// LogVerbose enables verbose logging (default: false)
+	LogVerbose bool
 	// TemplateSources defines the sources for template files. Multiple sources can be provided with different prefixes
 	TemplateSources render.Sources
 	// TemplateFuncs merges custom template functions into the default set of functions provided by hop. These are available in all templates.
@@ -199,6 +216,18 @@ type AppConfig struct {
 	TemplateExt string
 	// SessionStore provides the storage backend for sessions
 	SessionStore scs.Store
+	// SessionCookieLifetime is the duration for session cookies to persist (default: 168h)
+	SessionLifetime time.Duration
+	// SessionCookiePersist determines whether session cookies persist after the browser is closed (default: true)
+	SessionCookiePersist bool
+	// SessionCookieSameSite defines the SameSite attribute for session cookies (default: "lax")
+	SessionCookieSameSite string
+	// SessionCookieSecure determines whether session cookies are for secure connections only (default: true)
+	SessionCookieSecure bool
+	// SessionCookieHTTPOnly determines whether session cookies are HTTP-only (default: true)
+	SessionCookieHTTPOnly bool
+	// SessionCookiePath is the path for session cookies (default: "/")
+	SessionCookiePath string
 	// Stdout writer for standard output (default: os.Stdout)
 	Stdout io.Writer
 	// Stderr writer for error output (default: os.Stderr)
@@ -210,12 +239,13 @@ type AppConfig struct {
 // of the application. App implements graceful shutdown and ensures modules are started
 // and stopped in the correct order.
 type App struct {
+	host           string                      // host address
+	port           int                         // port number
 	firstError     error                       // first error that occurred during initialization
 	logger         *slog.Logger                // logger instance
 	server         *serve.Server               // server instance
 	router         *route.Mux                  // router instance
 	tm             *render.TemplateManager     // template manager instance
-	config         *conf.HopConfig             // configuration
 	events         *dispatch.Dispatcher        // event bus instance
 	session        *scs.SessionManager         // session manager instance
 	modules        map[string]Module           // map of modules by ID
@@ -259,7 +289,8 @@ func New(cfg AppConfig) (*App, error) {
 
 	// Create app
 	app := &App{
-		config:     cfg.Config,
+		host:       cfg.Host,
+		port:       cfg.Port,
 		logger:     logger,
 		events:     eventBus,
 		modules:    make(map[string]Module),
@@ -270,7 +301,15 @@ func New(cfg AppConfig) (*App, error) {
 	}
 
 	// Create server
-	app.server = serve.NewServer(cfg.Config, logger, router)
+	app.server = serve.NewServer(serve.Config{
+		Address:         fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+		IdleTimeout:     cfg.IdleTimeout,
+		ReadTimeout:     cfg.ReadTimeout,
+		WriteTimeout:    cfg.WriteTimeout,
+		ShutdownTimeout: cfg.ShutdownTimeout,
+		Router:          router,
+		Logger:          logger,
+	})
 	app.server.OnShutdown(func(ctx context.Context) error {
 		return app.Stop(ctx)
 	})
@@ -427,8 +466,11 @@ func (a *App) Session() *scs.SessionManager { return a.session }
 // TM returns the template manager instance for the app
 func (a *App) TM() *render.TemplateManager { return a.tm }
 
-// Config returns the configuration for the app
-func (a *App) Config() *conf.HopConfig { return a.config }
+// Host returns the host address for the app
+func (a *App) Host() string { return a.host }
+
+// Port returns the port number for the app
+func (a *App) Port() int { return a.port }
 
 // RunInBackground runs a function in the background via the server
 func (a *App) RunInBackground(r *http.Request, fn func() error) {
@@ -462,20 +504,13 @@ func (a *App) NewTemplateData(r *http.Request) map[string]any {
 	}
 
 	data := map[string]any{
-		//"CurrentUser":        auth.GetCurrentUserFromContext(r),
-		"Environment":        a.config.App.Environment,
-		"IsDevelopment":      a.config.App.Environment == "development",
-		"IsProduction":       a.config.App.Environment == "production",
-		"CSRFToken":          nosurf.Token(r),
-		"BaseURL":            a.config.Server.BaseURL,
-		"CacheBuster":        cacheBuster,
-		"RequestPath":        r.URL.Path,
-		"IsHome":             r.URL.Path == "/",
-		"IsHTMXRequest":      htmx.IsHtmxRequest(r),
-		"IsBoostedRequest":   htmx.IsBoostedRequest(r),
-		"IsAnyHtmxRequest":   htmx.IsAnyHtmxRequest(r),
-		"MaintenanceEnabled": a.config.Maintenance.Enabled,
-		"MaintenanceMessage": a.config.Maintenance.Message,
+		"CSRFToken":        nosurf.Token(r),
+		"CacheBuster":      cacheBuster,
+		"RequestPath":      r.URL.Path,
+		"IsHome":           r.URL.Path == "/",
+		"IsHTMXRequest":    htmx.IsHtmxRequest(r),
+		"IsBoostedRequest": htmx.IsBoostedRequest(r),
+		"IsAnyHtmxRequest": htmx.IsAnyHtmxRequest(r),
 	}
 
 	// Add custom data from the callback function
@@ -546,10 +581,10 @@ func createLogger(cfg *AppConfig) *slog.Logger {
 			cfg.Stderr = os.Stderr
 		}
 		logger := log.NewLogger(log.Options{
-			Format:      cfg.Config.Log.Format,
-			IncludeTime: cfg.Config.Log.IncludeTime,
-			Level:       cfg.Config.Log.Level,
-			Verbose:     cfg.Config.Log.Verbose,
+			Format:      cfg.LogFormat,
+			IncludeTime: cfg.LogIncludeTime,
+			Level:       cfg.LogLevel,
+			Verbose:     cfg.LogVerbose,
 			Writer:      cfg.Stderr,
 		})
 		cfg.Logger = logger
@@ -561,15 +596,15 @@ func createLogger(cfg *AppConfig) *slog.Logger {
 // createSessionStore creates a new session store based on the configuration
 // TODO: Add support for other session stores
 func createSessionStore(cfg *AppConfig) *scs.SessionManager {
-	sameSite := utils.SameSiteFromString(cfg.Config.Session.CookieSameSite)
+	sameSite := utils.SameSiteFromString(cfg.SessionCookieSameSite)
 
 	sessionMgr := scs.New()
-	sessionMgr.Lifetime = cfg.Config.Session.Lifetime.Duration
-	sessionMgr.Cookie.Persist = cfg.Config.Session.CookiePersist
+	sessionMgr.Lifetime = cfg.SessionLifetime
+	sessionMgr.Cookie.Persist = cfg.SessionCookiePersist
 	sessionMgr.Cookie.SameSite = sameSite
-	sessionMgr.Cookie.Secure = cfg.Config.Session.CookieSecure
-	sessionMgr.Cookie.HttpOnly = cfg.Config.Session.CookieHTTPOnly
-	sessionMgr.Cookie.Path = cfg.Config.Session.CookiePath
+	sessionMgr.Cookie.Secure = cfg.SessionCookieSecure
+	sessionMgr.Cookie.HttpOnly = cfg.SessionCookieHTTPOnly
+	sessionMgr.Cookie.Path = cfg.SessionCookiePath
 
 	if cfg.SessionStore != nil {
 		sessionMgr.Store = cfg.SessionStore

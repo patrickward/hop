@@ -61,6 +61,24 @@ func (c *Config) Get(key, getterName string, defaultValue any) any {
 	return defaultValue
 }
 
+// Lookup retrieves a value using a registered getter
+func (c *Config) Lookup(key, getterName string) (any, bool) {
+	c.mu.RLock()
+	getter, ok := c.getters[getterName]
+	c.mu.RUnlock()
+
+	if !ok {
+		panic(fmt.Sprintf("getter %q not registered", getterName))
+	}
+
+	if value, ok := c.lookup(key); ok {
+		if result, err := getter(value); err == nil {
+			return result, true
+		}
+	}
+	return nil, false
+}
+
 // MustGet retrieves a value using a registered getter, panicking if not set or invalid
 func (c *Config) MustGet(key, getterName string) any {
 	c.mu.RLock()
@@ -83,6 +101,11 @@ func (c *Config) MustGet(key, getterName string) any {
 	return result
 }
 
+// lookup returns the environment variable value for the given key
+func (c *Config) lookup(key string) (string, bool) {
+	return os.LookupEnv(c.prefix + key)
+}
+
 // get returns the environment variable value for the given key, applying the prefix
 func (c *Config) get(key string) string {
 	return os.Getenv(c.prefix + key)
@@ -90,9 +113,10 @@ func (c *Config) get(key string) string {
 
 // String gets a string value, returning the default if not set
 func (c *Config) String(key string, defaultValue string) string {
-	if value := c.get(key); value != "" {
+	if value, found := c.lookup(key); found {
 		return value
 	}
+
 	return defaultValue
 }
 
@@ -106,11 +130,13 @@ func (c *Config) MustString(key string) string {
 
 // Int gets an integer value, returning the default if not set or invalid
 func (c *Config) Int(key string, defaultValue int) int {
-	if value := c.get(key); value != "" {
-		if i, err := parseInt(value); err == nil {
+	if value, found := c.lookup(key); found {
+		i, err := parseInt(value)
+		if err == nil {
 			return i
 		}
 	}
+
 	return defaultValue
 }
 
@@ -129,9 +155,10 @@ func (c *Config) MustInt(key string) int {
 
 // Bool gets a boolean value, returning the default if not set
 func (c *Config) Bool(key string, defaultValue bool) bool {
-	if value := c.get(key); value != "" {
+	if value, found := c.lookup(key); found {
 		return parseBool(value)
 	}
+
 	return defaultValue
 }
 
@@ -146,11 +173,13 @@ func (c *Config) MustBool(key string) bool {
 
 // Duration gets a duration value, returning the default if not set or invalid
 func (c *Config) Duration(key string, defaultValue time.Duration) time.Duration {
-	if value := c.get(key); value != "" {
-		if d, err := time.ParseDuration(value); err == nil {
+	if value, found := c.lookup(key); found {
+		d, err := time.ParseDuration(value)
+		if err == nil {
 			return d
 		}
 	}
+
 	return defaultValue
 }
 
@@ -169,9 +198,10 @@ func (c *Config) MustDuration(key string) time.Duration {
 
 // StringSlice gets a slice of strings, splitting on comma, returning the default if not set
 func (c *Config) StringSlice(key string, defaultValue []string) []string {
-	if value := c.get(key); value != "" {
+	if value, found := c.lookup(key); found {
 		return splitAndTrim(value)
 	}
+
 	return defaultValue
 }
 

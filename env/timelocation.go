@@ -4,12 +4,13 @@ import "time"
 
 // TimeLocation gets a time.Location value, returning the default if not set or invalid
 func (c *Config) TimeLocation(key string, defaultValue *time.Location) *time.Location {
-	if value := c.get(key); value != "" {
+	if value, found := c.lookup(key); found {
 		loc, err := time.LoadLocation(value)
 		if err == nil {
 			return loc
 		}
 	}
+
 	return defaultValue
 }
 

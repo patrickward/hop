@@ -7,24 +7,25 @@ import (
 )
 
 func (c *Config) GetByteSize(key string, defaultValue int) int {
-	if value := c.get(key); value != "" {
-		if result, err := parseByteSize(value); err == nil {
+	if value, found := c.lookup(key); found {
+		result, err := parseByteSize(value)
+		if err == nil {
 			return result
 		}
 	}
+
 	return defaultValue
 }
 
 func (c *Config) MustByteSize(key string) int {
-	value := c.get(key)
-	if value == "" {
-		panic("required environment variable " + c.prefix + key + " not set")
+	if value, found := c.lookup(key); found {
+		result, err := parseByteSize(value)
+		if err == nil {
+			return result
+		}
 	}
-	result, err := parseByteSize(value)
-	if err != nil {
-		panic("invalid byte size: " + value)
-	}
-	return result
+
+	panic(fmt.Sprintf("required environment variable %s%s not set", c.prefix, key))
 }
 
 func parseByteSize(s string) (int, error) {

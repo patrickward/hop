@@ -3,6 +3,7 @@ package render
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/patrickward/hop/render/request"
@@ -162,6 +163,51 @@ func (v *PageData) HasErrorFor(field string) bool {
 	return v.ErrorFor(field) != ""
 }
 
+// ------ Path Helpers --------
+
+type LinkData struct {
+	Path   string
+	Title  string
+	Active bool
+}
+
+// ActiveLink returns a LinkData struct with the provided path and title.
+func (v *PageData) ActiveLink(path, title string) LinkData {
+	return LinkData{
+		Path:   path,
+		Title:  title,
+		Active: v.RequestPath() == path,
+	}
+}
+
+// ActivePrefixLink returns a LinkData struct with the provided path and title, where the active state is determined by the prefix.
+func (v *PageData) ActivePrefixLink(path, title, prefix string) LinkData {
+	return LinkData{
+		Path:   path,
+		Title:  title,
+		Active: strings.HasPrefix(v.RequestPath(), prefix),
+	}
+}
+
+// ActiveSuffixLink returns a LinkData struct with the provided path and title, where the active state is determined by the suffix.
+func (v *PageData) ActiveSuffixLink(path, title, suffix string) LinkData {
+	return LinkData{
+		Path:   path,
+		Title:  title,
+		Active: strings.HasSuffix(v.RequestPath(), suffix),
+	}
+}
+
+// RequestPath returns the path of the request.
+func (v *PageData) RequestPath() string {
+	return request.URLPath(v.request)
+}
+
+// RequestMethod returns the method of the request.
+func (v *PageData) RequestMethod() string {
+	return request.Method(v.request)
+}
+
 // ------ Common Helpers --------
 
 // BaseURL returns the base URL of the request.
@@ -187,14 +233,4 @@ func (v *PageData) Nonce() string {
 	}
 
 	return ""
-}
-
-// RequestPath returns the path of the request.
-func (v *PageData) RequestPath() string {
-	return request.URLPath(v.request)
-}
-
-// RequestMethod returns the method of the request.
-func (v *PageData) RequestMethod() string {
-	return request.Method(v.request)
 }

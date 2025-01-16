@@ -1,157 +1,4 @@
-/*
-Package hop provides an experimental, modular web application framework for Go.
-
-# ⚠️ Important Notice
-
-This framework is in active development and is currently EXPERIMENTAL.
-
-  - The API is unstable and changes frequently without notice
-  - Documentation may be incomplete or outdated
-  - Not recommended for production use unless you're willing to vendor the code
-  - Built primarily for specific use cases and may not be suitable for general use
-  - Limited community support and testing
-
-Consider using established frameworks like Chi, Echo, Gin, or Fiber for production applications.
-
-If you decide to use Hop, be prepared to:
-  - Handle breaking changes regularly
-  - Read and understand the source code
-  - Potentially fork and maintain your own version
-  - Contribute fixes and improvements back to the project
-
-# What is Hop?
-
-Hop is designed to be a flexible, maintainable web framework that follows Go idioms
-and best practices. It provides a modular architecture where functionality can be
-easily extended through a plugin system while maintaining a clean separation of concerns.
-
-# Core Features
-
-  - Modular architecture with pluggable components
-  - Built-in template rendering with layouts and partials
-  - Session management
-  - Configuration management
-  - Structured logging
-  - Event dispatching
-  - HTTP routing with middleware support
-  - Background task management
-  - Graceful shutdown handling
-
-# Getting Started
-
-	import "github.com/patrickward/hop"
-
-	func main() {
-		// Create app configuration
-		appConfig := hop.AppConfig{
-			Config:          &cfg.Hop,
-			Logger:          logger,
-			TemplateSources: render.Sources{"-": &templates.Files},
-			TemplateFuncs:   funcs.NewTemplateFuncMap(authorizer),
-			SessionStore:    store,
-			Stdout:          stdout,
-			Stderr:          stderr,
-		}
-
-		// Initialize the app
-		app, err := hop.New(cfg)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// Register modules
-		app.RegisterModule(mymodule.New())
-
-		// Start the app
-		if err := app.Start(context.Background()); err != nil {
-			log.Fatal(err)
-		}
-	}
-
-# Modules
-
-Hop uses a module system to organize and extend functionality. Modules are Go types that
-implement one or more of the following interfaces:
-
-  - Module (required): Base interface for all modules
-  - StartupModule: For modules that need initialization at startup
-  - ShutdownModule: For modules that need cleanup at shutdown
-  - HTTPModule: For modules that provide HTTP routes
-  - DispatcherModule: For modules that handle events
-  - TemplateDataModule: For modules that provide template data
-  - ConfigurableModule: For modules that require configuration
-
-Creating a basic module:
-
-	```go
-	type MyModule struct {}
-
-	func (m *MyModule) ID() string {
-	    return "mymodule"
-	}
-
-	func (m *MyModule) Init() error {
-	    return nil
-	}
-	```
-
-# Template Rendering
-
-Hop includes a template system that supports:
-
-  - Multiple template sources
-  - Layout templates
-  - Partial templates
-  - Custom template functions
-  - Automatic template caching
-  - HTMX integration
-
-Example template usage:
-
-	```go
-	resp := app.NewResponse(r).
-	    Layout("main").
-	    Path("pages/home").
-	    WithData(map[string]any{
-	        "Title": "Welcome",
-	    }).
-	    StatusOK()
-	resp.Render(w, r)
-	```
-
-# Configuration
-
-The framework uses a structured configuration system that can be customized:
-
-  - Configuration file support
-  - Environment variable overrides
-  - Type-safe configuration access
-
-# Event System
-
-Hop includes an event dispatcher for loose coupling between components:
-
-  - Publish/subscribe pattern
-  - Async event handling
-  - Type-safe event definitions
-  - Module-specific event handlers
-
-The event system is useful for small, monolithic apps or direct interaction between modules within a single server.
-
-# Best Practices
-
-When building applications with Hop:
-
-1. Organize related functionality into modules
-2. Use dependency injection via the App container
-3. Handle graceful shutdown in modules that need cleanup
-4. Use the event system for cross-module communication
-5. Implement appropriate interfaces based on module needs
-6. Use structured logging for better observability
-7. Follow Go idioms and conventions
-
-For more information, see the documentation for individual types and interfaces.
-*/
+// Package hop provides an experimental, modular web application framework for Go.
 package hop
 
 import (
@@ -186,6 +33,8 @@ type OnTemplateDataFunc func(r *http.Request, data *map[string]any)
 // It allows customization of core framework components including logging,
 // template rendering, session management, and I/O configuration.
 type AppConfig struct {
+	// Environment is the application environment (default: "development")
+	Environment string
 	// Host is the host address to bind the server to (default: "" - all interfaces)
 	Host string
 	// Port is the port to bind the server to (default: 8080)
@@ -239,6 +88,7 @@ type AppConfig struct {
 // of the application. App implements graceful shutdown and ensures modules are started
 // and stopped in the correct order.
 type App struct {
+	environment    string                      // environment (e.g. "production", "development", "test")
 	host           string                      // host address
 	port           int                         // port number
 	firstError     error                       // first error that occurred during initialization
@@ -287,17 +137,22 @@ func New(cfg AppConfig) (*App, error) {
 	// Create router
 	router := route.New()
 
+	if cfg.Environment == "" {
+		cfg.Environment = "development"
+	}
+
 	// Create app
 	app := &App{
-		host:       cfg.Host,
-		port:       cfg.Port,
-		logger:     logger,
-		events:     eventBus,
-		modules:    make(map[string]Module),
-		router:     router,
-		session:    sm,
-		startOrder: make([]string, 0),
-		tm:         tm,
+		environment: cfg.Environment,
+		host:        cfg.Host,
+		port:        cfg.Port,
+		logger:      logger,
+		events:      eventBus,
+		modules:     make(map[string]Module),
+		router:      router,
+		session:     sm,
+		startOrder:  make([]string, 0),
+		tm:          tm,
 	}
 
 	// Create server
@@ -499,18 +354,17 @@ func (a *App) NewResponse(r *http.Request) *render.Response {
 // NewTemplateData returns a map of data that can be used in a Go template, API response, etc.
 // It includes the current user, environment, version, and other useful information.
 func (a *App) NewTemplateData(r *http.Request) map[string]any {
-	cacheBuster := func() string {
-		return time.Now().UTC().Format("20060102150405")
-	}
-
 	data := map[string]any{
 		"CSRFToken":        nosurf.Token(r),
-		"CacheBuster":      cacheBuster,
 		"RequestPath":      r.URL.Path,
 		"IsHome":           r.URL.Path == "/",
 		"IsHTMXRequest":    htmx.IsHtmxRequest(r),
 		"IsBoostedRequest": htmx.IsBoostedRequest(r),
 		"IsAnyHtmxRequest": htmx.IsAnyHtmxRequest(r),
+		"IsProduction":     a.environment == "production",
+		"IsDevelopment":    a.environment == "development",
+		"IsStaging":        a.environment == "staging",
+		"IsTest":           a.environment == "test",
 	}
 
 	// Add custom data from the callback function

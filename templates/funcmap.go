@@ -29,6 +29,15 @@ func MergeFuncMaps(maps ...template.FuncMap) template.FuncMap {
 	return result
 }
 
+// MergeIntoFuncMap merges the provided function maps into the provided function map.
+func MergeIntoFuncMap(dst template.FuncMap, maps ...template.FuncMap) {
+	for _, src := range maps {
+		for key, value := range src {
+			dst[key] = value
+		}
+	}
+}
+
 // cachedFuncMap holds the cached function map for the templates package.
 var cachedFuncMap template.FuncMap
 

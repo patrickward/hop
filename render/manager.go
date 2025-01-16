@@ -318,7 +318,7 @@ func errorPageFromStatus(status int) string {
 // renderSystemError handles rendering of system error pages with fallback
 func (tm *TemplateManager) renderSystemError(w http.ResponseWriter, r *http.Request, resp *Response, status int, originalErr error) {
 	// Log the original error
-	tm.logger.Error("Template error",
+	tm.logger.Error("System Error",
 		slog.String("path", resp.GetTemplatePath()),
 		slog.String("error", originalErr.Error()))
 
@@ -327,6 +327,9 @@ func (tm *TemplateManager) renderSystemError(w http.ResponseWriter, r *http.Requ
 	errorTmpl, err := tm.getTemplate(errorPath)
 	if err != nil {
 		// Fallback to basic error response if error template fails
+		tm.logger.Error("Failed to load error template",
+			slog.String("path", errorPath),
+			slog.String("error", err.Error()))
 		http.Error(w, originalErr.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -337,6 +340,9 @@ func (tm *TemplateManager) renderSystemError(w http.ResponseWriter, r *http.Requ
 	layout := fmt.Sprintf("layout:%s", tm.systemLayout)
 	if err := errorTmpl.ExecuteTemplate(buf, layout, resp.PageData(r).Data()); err != nil {
 		// Fallback if error template rendering fails
+		tm.logger.Error("Failed to render error template",
+			slog.String("path", errorPath),
+			slog.String("error", err.Error()))
 		http.Error(w, originalErr.Error(), http.StatusInternalServerError)
 		return
 	}

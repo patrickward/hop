@@ -69,10 +69,8 @@ func (resp *Response) addFlash(r *http.Request) {
 	}
 
 	if flashMessages := resp.flash.Get(r.Context()); len(flashMessages) > 0 {
-		fmt.Printf("FOUND FALSH MESSAGES %v\n", flashMessages)
 		resp.data.Set("Flash", flashMessages)
 	} else {
-		fmt.Printf("NO FLASHM MESSASGE\n")
 		resp.data.Set("Flash", nil)
 	}
 }

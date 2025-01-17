@@ -1,7 +1,6 @@
 package render
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/patrickward/hop/flash"
 	"github.com/patrickward/hop/templates"
 )
 
@@ -104,8 +105,8 @@ func NewTemplateManager(sources Sources, opts TemplateManagerOptions) (*Template
 }
 
 // NewResponse creates a new Response instance with the TemplateManager.
-func (tm *TemplateManager) NewResponse() *Response {
-	return NewResponse(tm)
+func (tm *TemplateManager) NewResponse(manager *flash.Manager) *Response {
+	return NewResponse(tm, manager)
 }
 
 // SetErrorTemplate sets the template to use for rendering system errors.

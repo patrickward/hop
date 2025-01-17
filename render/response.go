@@ -1,9 +1,11 @@
 package render
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/patrickward/hop/flash"
 	"github.com/patrickward/hop/render/htmx"
 	"github.com/patrickward/hop/render/htmx/trigger"
 )
@@ -11,6 +13,8 @@ import (
 // Response represents a view response to an HTTP request
 // It uses a fluent interface to allow for chaining of methods, so that methods can be called in any order.
 type Response struct {
+	// The flash manager to be used (default: nil). Flash is only used for rendering flash messages during the render stage.
+	flash *flash.Manager
 	// The headers to be passed to the response (default: empty)
 	headers map[string]string
 	// The layout template to be used (required, no default)
@@ -33,8 +37,10 @@ type Response struct {
 	tm *TemplateManager
 }
 
-func NewResponse(tm *TemplateManager) *Response {
+// NewResponse creates a new Response struct with the provided template manager.
+func NewResponse(tm *TemplateManager, manager *flash.Manager) *Response {
 	return &Response{
+		flash:      manager,
 		data:       NewPageData(make(map[string]any)),
 		headers:    map[string]string{},
 		layout:     "",
@@ -52,7 +58,23 @@ func NewResponse(tm *TemplateManager) *Response {
 func (resp *Response) PageData(r *http.Request) *PageData {
 	resp.data.SetTitle(resp.title)
 	resp.data.SetRequest(r)
+	resp.addFlash(r)
 	return resp.data
+}
+
+// addFlash adds flash messages to the view data model
+func (resp *Response) addFlash(r *http.Request) {
+	if resp.flash == nil {
+		return
+	}
+
+	if flashMessages := resp.flash.Get(r.Context()); len(flashMessages) > 0 {
+		fmt.Printf("FOUND FALSH MESSAGES %v\n", flashMessages)
+		resp.data.Set("Flash", flashMessages)
+	} else {
+		fmt.Printf("NO FLASHM MESSASGE\n")
+		resp.data.Set("Flash", nil)
+	}
 }
 
 // GetHeaders returns the headers map as a combination map of both triggers and headers

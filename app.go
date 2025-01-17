@@ -17,6 +17,7 @@ import (
 	"github.com/justinas/nosurf"
 
 	"github.com/patrickward/hop/dispatch"
+	"github.com/patrickward/hop/flash"
 	"github.com/patrickward/hop/log"
 	"github.com/patrickward/hop/render"
 	"github.com/patrickward/hop/render/htmx"
@@ -91,6 +92,7 @@ type App struct {
 	environment    string                      // environment (e.g. "production", "development", "test")
 	host           string                      // host address
 	port           int                         // port number
+	flash          *flash.Manager              // flash message manager
 	firstError     error                       // first error that occurred during initialization
 	logger         *slog.Logger                // logger instance
 	server         *serve.Server               // server instance
@@ -144,6 +146,7 @@ func New(cfg AppConfig) (*App, error) {
 	// Create app
 	app := &App{
 		environment: cfg.Environment,
+		flash:       flash.NewManager(sm),
 		host:        cfg.Host,
 		port:        cfg.Port,
 		logger:      logger,
@@ -312,6 +315,11 @@ func (a *App) Logger() *slog.Logger { return a.logger }
 // Dispatcher returns the event bus for the app
 func (a *App) Dispatcher() *dispatch.Dispatcher { return a.events }
 
+// Flash returns the application's flash manager
+func (a *App) Flash() *flash.Manager {
+	return a.flash
+}
+
 // Router returns the router instance for the app
 func (a *App) Router() *route.Mux { return a.router }
 
@@ -348,7 +356,7 @@ func (a *App) NewResponse(r *http.Request) *render.Response {
 		panic("template manager not initialized - this app does not support rendering templates")
 	}
 
-	return render.NewResponse(a.tm).WithData(a.NewTemplateData(r))
+	return render.NewResponse(a.tm, a.flash).WithData(a.NewTemplateData(r))
 }
 
 // NewTemplateData returns a map of data that can be used in a Go template, API response, etc.

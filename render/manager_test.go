@@ -211,7 +211,7 @@ func TestTemplateManager(t *testing.T) {
 			}
 
 			w := httptest.NewRecorder()
-			tm.NewResponse().
+			tm.NewResponse(nil).
 				Layout(tt.layout).
 				Path(tt.page).
 				WithData(tt.data.toMap()).

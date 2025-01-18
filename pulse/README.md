@@ -1,6 +1,6 @@
 # Pulse Package
 
-The `pulse` package provides a quick and dirty way to collect and monitor application metrics in Go applications using the hop framework. It includes HTTP middleware for request metrics, memory statistics tracking, and a built-in metrics visualization dashboard. It's not meant to be a full-fledged monitoring solution but rather a simple way to get started with metrics collection. For more advanced use cases, consider using a dedicated monitoring tool like Prometheus or Grafana. 
+The `pulse` package provides a quick and dirty way to collect and monitor application metrics in Go applications using the hop framework. It includes HTTP middleware for request metrics, memory statistics tracking, and a built-in metrics visualization dashboard. It's not meant to be a full-fledged monitoring solution but rather a simple way to get started with metrics collection during development. For more advanced use cases, consider using a dedicated monitoring tool like Prometheus or Grafana. 
 
 ## Features
 
@@ -24,7 +24,7 @@ collector := pulse.NewStandardCollector(
     }),
 )
 
-// Create and configure the pulse module
+// Pulse was designed to work with the hop package, which can accept custom modules.
 pulseMod := pulse.NewModule(collector, &pulse.Config{
     RoutePath: "/pulse",  // Default path
     EnablePprof: !app.Config().IsProduction(), // Enable pprof in dev mode
@@ -34,7 +34,7 @@ pulseMod := pulse.NewModule(collector, &pulse.Config{
 // Register with your application
 app.RegisterModule(pulseMod)
 
-// Add the middleware to collect HTTP pulse
+// Add the middleware to collect HTTP metrics
 app.Router().Use(pulseMod.Middleware())
 ```
 
@@ -92,7 +92,7 @@ collector := pulse.NewStandardCollector(
 
 ## Pulse Dashboard
 
-The pulse dashboard is available at `/pulse` by default (configurable via `PulsePath`). It provides:
+The pulse dashboard is available at `/pulse` by default (configurable via `RoutePath`). It provides:
 
 ### HTTP Metrics
 - Total request count

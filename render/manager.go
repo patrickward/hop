@@ -13,7 +13,6 @@ import (
 	"sync"
 
 	"github.com/patrickward/hop/flash"
-	"github.com/patrickward/hop/templates"
 )
 
 const defaultFSKey = "DEFAULT_FS"
@@ -54,12 +53,22 @@ type TemplateManagerOptions struct {
 	Logger *slog.Logger
 }
 
+// MergeIntoFuncMap merges the provided function maps into the provided function map.
+func MergeIntoFuncMap(dst template.FuncMap, maps ...template.FuncMap) {
+	for _, src := range maps {
+		for key, value := range src {
+			dst[key] = value
+		}
+	}
+}
+
 // NewTemplateManager creates a new TemplateManager.
 // Accepts a map of file systems, a logger, and options for configuration.
 // For sources, if the string key is empty or "-", it will be treated as the default file system. Otherwise, the key is used as the file system ID.
 // e.g., "foo:bar" for a template named "bar" in the "foo" file system.
 func NewTemplateManager(sources Sources, opts TemplateManagerOptions) (*TemplateManager, error) {
-	funcMap := templates.MergeFuncMaps(templates.FuncMap(), opts.Funcs)
+	funcMap := template.FuncMap{}
+	MergeIntoFuncMap(funcMap, opts.Funcs)
 
 	// Set default extension if not provided
 	if opts.Extension == "" {

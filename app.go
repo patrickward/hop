@@ -9,7 +9,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
@@ -18,7 +17,6 @@ import (
 
 	"github.com/patrickward/hop/dispatch"
 	"github.com/patrickward/hop/flash"
-	"github.com/patrickward/hop/log"
 	"github.com/patrickward/hop/render"
 	"github.com/patrickward/hop/render/htmx"
 	"github.com/patrickward/hop/route"
@@ -50,14 +48,6 @@ type AppConfig struct {
 	ShutdownTimeout time.Duration
 	// Logger is the application's logging instance. If nil, a default logger will be created based on the configuration
 	Logger *slog.Logger
-	// LogFormat is the format for log output (default: "pretty")
-	LogFormat string
-	// LogIncludeTime determines whether to include timestamps in log output (default: false)
-	LogIncludeTime bool
-	// LogLevel is the log level for the logger (default: "debug")
-	LogLevel string
-	// LogVerbose enables verbose logging (default: false)
-	LogVerbose bool
 	// TemplateSources defines the sources for template files. Multiple sources can be provided with different prefixes
 	TemplateSources render.Sources
 	// TemplateFuncs merges custom template functions into the default set of functions provided by hop. These are available in all templates.
@@ -110,11 +100,12 @@ type App struct {
 
 // New creates a new application with core components
 func New(cfg AppConfig) (*App, error) {
-	// Create logger
-	logger := createLogger(&cfg)
+	if cfg.Logger == nil {
+		cfg.Logger = slog.Default()
+	}
 
 	// Create events
-	eventBus := dispatch.NewDispatcher(logger)
+	eventBus := dispatch.NewDispatcher(cfg.Logger)
 
 	// Create template manager
 	var tm *render.TemplateManager
@@ -125,7 +116,7 @@ func New(cfg AppConfig) (*App, error) {
 			render.TemplateManagerOptions{
 				Extension: cfg.TemplateExt,
 				Funcs:     cfg.TemplateFuncs,
-				Logger:    logger,
+				Logger:    cfg.Logger,
 			})
 		if err != nil {
 			return nil, fmt.Errorf("error creating template manager: %w", err)
@@ -149,7 +140,7 @@ func New(cfg AppConfig) (*App, error) {
 		flash:       flash.NewManager(sm),
 		host:        cfg.Host,
 		port:        cfg.Port,
-		logger:      logger,
+		logger:      cfg.Logger,
 		events:      eventBus,
 		modules:     make(map[string]Module),
 		router:      router,
@@ -166,7 +157,7 @@ func New(cfg AppConfig) (*App, error) {
 		WriteTimeout:    cfg.WriteTimeout,
 		ShutdownTimeout: cfg.ShutdownTimeout,
 		Router:          router,
-		Logger:          logger,
+		Logger:          cfg.Logger,
 	})
 	app.server.OnShutdown(func(ctx context.Context) error {
 		return app.Stop(ctx)
@@ -179,7 +170,9 @@ func New(cfg AppConfig) (*App, error) {
 
 // SetErrorTemplate sets the template to use for rendering error pages
 func (a *App) SetErrorTemplate(name string) {
-	a.tm.SetErrorTemplate(name)
+	if a.tm != nil {
+		a.tm.SetErrorTemplate(name)
+	}
 }
 
 // Error returns the first error that occurred during initialization
@@ -436,24 +429,6 @@ func (a *App) AddChainedRoutes(routes map[string]http.Handler, chain route.Chain
 // -----------------------------------------------------------------------------
 // Private functions
 // -----------------------------------------------------------------------------
-
-func createLogger(cfg *AppConfig) *slog.Logger {
-	if cfg.Logger == nil {
-		if cfg.Stderr == nil {
-			cfg.Stderr = os.Stderr
-		}
-		logger := log.NewLogger(log.Options{
-			Format:      cfg.LogFormat,
-			IncludeTime: cfg.LogIncludeTime,
-			Level:       cfg.LogLevel,
-			Verbose:     cfg.LogVerbose,
-			Writer:      cfg.Stderr,
-		})
-		cfg.Logger = logger
-	}
-
-	return cfg.Logger
-}
 
 // createSessionStore creates a new session store based on the configuration
 // TODO: Add support for other session stores

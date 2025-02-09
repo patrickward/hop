@@ -69,7 +69,8 @@ func (resp *Response) addFlash(r *http.Request) {
 
 	if flashMessages := resp.flash.Get(r.Context()); len(flashMessages) > 0 {
 		resp.data.Set("Flash", flashMessages)
-	} else {
+		// Else if there are no flash messages in the data model, set the Flash key to nil
+	} else if resp.data.Get("Flash") == "" {
 		resp.data.Set("Flash", nil)
 	}
 }

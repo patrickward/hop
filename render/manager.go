@@ -30,7 +30,6 @@ type TemplateManager struct {
 	//templates     map[string]*template.Template
 
 	templateCache      sync.Map
-	loadOnce           sync.Once
 	mu                 sync.RWMutex
 	layoutsAndPartials *template.Template
 }

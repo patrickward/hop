@@ -25,7 +25,7 @@ func ExamplePayloadAs() {
 	// Safe conversion with error handling
 	user, err := dispatch.PayloadAs[UserCreated](evt)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		fmt.Printf("SetError: %v\n", err)
 		return
 	}
 	fmt.Printf("User created: %s\n", user.Name)
@@ -66,7 +66,7 @@ func ExamplePayloadAsMap() {
 	// Use the convenience function for map payloads
 	config, err := dispatch.PayloadAsMap(evt)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		fmt.Printf("SetError: %v\n", err)
 		return
 	}
 
@@ -86,7 +86,7 @@ func ExamplePayloadAsSlice() {
 	// Use the convenience function for slice payloads
 	users, err := dispatch.PayloadAsSlice(evt)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		fmt.Printf("SetError: %v\n", err)
 		return
 	}
 
@@ -114,7 +114,7 @@ func ExamplePayloadMapAs() {
 	// Convert the payload to a map of Regions
 	regions, err := dispatch.PayloadMapAs[Region](evt)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		fmt.Printf("SetError: %v\n", err)
 		return
 	}
 
@@ -152,7 +152,7 @@ func ExamplePayloadSliceAs() {
 	// Convert the payload to a slice of Users
 	users, err := dispatch.PayloadSliceAs[User](evt)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		fmt.Printf("SetError: %v\n", err)
 		return
 	}
 

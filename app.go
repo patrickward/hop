@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -17,10 +18,10 @@ import (
 
 	"github.com/patrickward/hop/dispatch"
 	"github.com/patrickward/hop/flash"
-	"github.com/patrickward/hop/render"
-	"github.com/patrickward/hop/render/htmx"
 	"github.com/patrickward/hop/serve"
 	"github.com/patrickward/hop/utils"
+	"github.com/patrickward/hop/view"
+	"github.com/patrickward/hop/view/htmx"
 )
 
 // OnTemplateDataFunc is a function type that takes an HTTP request and a pointer to a map of data.
@@ -49,8 +50,8 @@ type AppConfig struct {
 	ShutdownTimeout time.Duration
 	// Logger is the application's logging instance. If nil, a default logger will be created based on the configuration
 	Logger *slog.Logger
-	// TemplateSources defines the sources for template files. Multiple sources can be provided with different prefixes
-	TemplateSources render.Sources
+	// TemplateFS is the file system to use for template files
+	TemplateFS fs.FS
 	// TemplateFuncs merges custom template functions into the default set of functions provided by hop. These are available in all templates.
 	TemplateFuncs template.FuncMap
 	// TemplateExt defines the extension for template files (default: ".html")
@@ -88,7 +89,7 @@ type App struct {
 	logger         *slog.Logger                // logger instance
 	server         *serve.Server               // server instance
 	handler        http.Handler                // the http.Handler for the server
-	tm             *render.TemplateManager     // template manager instance
+	tm             *view.TemplateManager       // template manager instance
 	events         *dispatch.Dispatcher        // event bus instance
 	session        *scs.SessionManager         // session manager instance
 	modules        map[string]Module           // map of modules by ID
@@ -109,12 +110,12 @@ func New(cfg AppConfig) (*App, error) {
 	eventBus := dispatch.NewDispatcher(cfg.Logger)
 
 	// Create template manager
-	var tm *render.TemplateManager
-	if len(cfg.TemplateSources) > 0 {
+	var tm *view.TemplateManager
+	if cfg.TemplateFS != nil {
 		var err error
-		tm, err = render.NewTemplateManager(
-			cfg.TemplateSources,
-			render.TemplateManagerOptions{
+		tm, err = view.NewTemplateManager(
+			cfg.TemplateFS,
+			view.TemplateManagerOptions{
 				Extension: cfg.TemplateExt,
 				Funcs:     cfg.TemplateFuncs,
 				Logger:    cfg.Logger,
@@ -122,7 +123,6 @@ func New(cfg AppConfig) (*App, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error creating template manager: %w", err)
 		}
-
 	}
 
 	// Create session manager
@@ -171,10 +171,10 @@ func New(cfg AppConfig) (*App, error) {
 
 // -----------------------------------------------------------------------------
 
-// SetErrorTemplate sets the template to use for rendering error pages
-func (a *App) SetErrorTemplate(name string) {
+// SetSystemPagesLayout sets the template to use for rendering error pages
+func (a *App) SetSystemPagesLayout(name string) {
 	if a.tm != nil {
-		a.tm.SetErrorTemplate(name)
+		a.tm.SetSystemPagesLayout(name)
 	}
 }
 
@@ -323,7 +323,7 @@ func (a *App) Handler() http.Handler { return a.handler }
 func (a *App) Session() *scs.SessionManager { return a.session }
 
 // TM returns the template manager instance for the app
-func (a *App) TM() *render.TemplateManager { return a.tm }
+func (a *App) TM() *view.TemplateManager { return a.tm }
 
 // Host returns the host address for the app
 func (a *App) Host() string { return a.host }
@@ -347,12 +347,14 @@ func (a *App) OnShutdown(fn func(context.Context) error) {
 }
 
 // NewResponse creates a new Response instance with the TemplateManager.
-func (a *App) NewResponse(r *http.Request) *render.Response {
+func (a *App) NewResponse(r *http.Request) *view.Response {
 	if a.tm == nil {
 		panic("template manager not initialized - this app does not support rendering templates")
 	}
 
-	return render.NewResponse(a.tm, a.flash).WithData(a.NewTemplateData(r))
+	return view.NewResponse(a.tm).
+		SetFlashManager(a.flash).
+		SetData(a.NewTemplateData(r))
 }
 
 // NewTemplateData returns a map of data that can be used in a Go template, API response, etc.
@@ -371,7 +373,7 @@ func (a *App) NewTemplateData(r *http.Request) map[string]any {
 		"IsTest":           a.environment == "test",
 	}
 
-	// Add custom data from the callback function
+	// Add custom data from the onTemplateData callback. Set via app.OnTemplateData.
 	if a.onTemplateData != nil {
 		newData := make(map[string]any)
 		a.onTemplateData(r, &newData)
@@ -389,45 +391,6 @@ func (a *App) NewTemplateData(r *http.Request) map[string]any {
 
 	return data
 }
-
-// -----------------------------------------------------------------------------
-// Route Functions (TEMPORARY)
-// -----------------------------------------------------------------------------
-
-//// AddRoute adds a new route to the server, using the newer v1.22 http.Handler interface. It takes a pattern, an http.Handler, and an optional list of middleware.
-//func (a *App) AddRoute(pattern string, handler http.Handler, middleware ...route.Middleware) {
-//	if len(middleware) > 0 {
-//		// Create a chain of middleware and wrap the handler
-//		chain := route.NewChain(middleware...).Then(handler)
-//		a.router.Handle(pattern, chain)
-//		return
-//	}
-//	a.router.Handle(pattern, handler)
-//}
-//
-//// AddChainedRoute adds a new route to the server with a chain of middleware
-//// It takes a pattern, an http.Handler, and a route.Chain struct
-//func (a *App) AddChainedRoute(pattern string, handler http.Handler, chain route.Chain) {
-//	a.router.Handle(pattern, chain.Then(handler))
-//}
-//
-//// AddRoutes adds multiple routes to the server. It takes a map of patterns to http.Handlers and an optional list of middleware.
-//func (a *App) AddRoutes(routes map[string]http.Handler, middleware ...route.Middleware) {
-//	for pattern, handler := range routes {
-//		if len(middleware) > 0 {
-//			a.AddRoute(pattern, handler, middleware...)
-//			continue
-//		}
-//		a.AddRoute(pattern, handler)
-//	}
-//}
-//
-//// AddChainedRoutes adds multiple routes to the server with a chain of middleware
-//func (a *App) AddChainedRoutes(routes map[string]http.Handler, chain route.Chain) {
-//	for pattern, handler := range routes {
-//		a.AddChainedRoute(pattern, handler, chain)
-//	}
-//}
 
 // -----------------------------------------------------------------------------
 // Private functions

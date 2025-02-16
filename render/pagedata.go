@@ -11,7 +11,7 @@ import (
 
 const (
 	PageDataPageKey   = "Page"
-	PageDataErrorKey  = "Error"
+	PageDataErrorKey  = "SetError"
 	PageDataErrorsKey = "Errors"
 )
 
@@ -60,7 +60,7 @@ func initData(data map[string]any) map[string]any {
 		data = map[string]any{}
 	}
 
-	// If no "Error" key is set, set it to an empty string
+	// If no "SetError" key is set, set it to an empty string
 	if _, ok := data[PageDataErrorKey]; !ok {
 		data[PageDataErrorKey] = ""
 	}
@@ -118,7 +118,7 @@ func (v *PageData) Title() string {
 	return v.title
 }
 
-// ------ Error Helpers --------
+// ------ SetError Helpers --------
 
 // Error returns the error message from the view data model.
 func (v *PageData) Error() string {
@@ -130,7 +130,7 @@ func (v *PageData) HasError() bool {
 	return v.GetString(PageDataErrorKey) != ""
 }
 
-// ------ Field Error Helpers --------
+// ------ Field SetError Helpers --------
 
 // Errors returns a map of field errors from the view data model.
 func (v *PageData) Errors() map[string]string {

@@ -43,7 +43,7 @@ func (resp *Response) RenderMaintenance(w http.ResponseWriter, r *http.Request) 
 	resp.tm.renderSystemError(w, r, resp, http.StatusServiceUnavailable, fmt.Errorf("service Unavailable"))
 }
 
-// RenderSystemError renders the 500 Internal Server Error page
+// RenderSystemError renders the 500 Internal Server SetError page
 func (resp *Response) RenderSystemError(w http.ResponseWriter, r *http.Request, err error) {
 	// Get the stack trace and output to the log
 	if resp.tm.logger != nil {

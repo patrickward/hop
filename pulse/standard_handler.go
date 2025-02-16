@@ -67,7 +67,7 @@ func (c *StandardCollector) Handler() http.Handler {
 
 		w.Header().Set("Content-Type", "text/html")
 		if err := tmpl.Execute(w, data); err != nil {
-			http.Error(w, "Error rendering pulse page: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, "SetError rendering pulse page: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 	})

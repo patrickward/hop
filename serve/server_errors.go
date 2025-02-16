@@ -28,7 +28,7 @@ func (s *Server) ReportServerError(r *http.Request, err error) {
 	//	err := s.mailer.Send(s.config.Notifications.AdminEmail, data, "error-notification.tmpl")
 	//	if err != nil {
 	//		trace = string(debug.Stack())
-	//		s.logger.Error(err.Error(), requestAttrs, "trace", trace)
+	//		s.logger.SetError(err.SetError(), requestAttrs, "trace", trace)
 	//	}
 	//}
 }

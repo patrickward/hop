@@ -257,10 +257,10 @@ func (tm *TemplateManager) loadLayoutsAndPartials() (*template.Template, error) 
 
 //func (tm *TemplateManager) LogTemplateNames() {
 //	for name, tmpl := range tm.templates {
-//		tm.logger.Info("Template", slog.String("name", name))
+//		tm.logger.SetInfo("Template", slog.String("name", name))
 //		associatedTemplates := tmpl.Templates()
 //		for _, tmpl := range associatedTemplates {
-//			tm.logger.Info("    Associated", slog.String("name", tmpl.Name()))
+//			tm.logger.SetInfo("    Associated", slog.String("name", tmpl.Name()))
 //		}
 //	}
 //}
@@ -327,7 +327,7 @@ func errorPageFromStatus(status int) string {
 // renderSystemError handles rendering of system error pages with fallback
 func (tm *TemplateManager) renderSystemError(w http.ResponseWriter, r *http.Request, resp *Response, status int, originalErr error) {
 	// Log the original error
-	tm.logger.Error("System Error",
+	tm.logger.Error("System SetError",
 		slog.String("path", resp.GetTemplatePath()),
 		slog.String("error", originalErr.Error()))
 

@@ -83,7 +83,7 @@ distributed processing. For distributed systems, message persistence, or advance
 routing and transformation, consider using a more comprehensive solution like [Watermill](https://github.com/ThreeDotsLabs/watermill)
 or a message queue.
 
-Error Handling:
+SetError Handling:
 
 The event dispatcher automatically recovers from panics in event handlers and logs them
 using the provided logger. This ensures that a failing handler won't affect other

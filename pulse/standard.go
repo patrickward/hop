@@ -29,24 +29,24 @@ type Thresholds struct {
 	CPUPercent              float64 // CPU usage percentage
 	ClientErrorRatePercent  float64 // Higher threshold for 4xx errors
 	DiskPercent             float64 // Percentage of disk space used
-	GCPauseMs               float64 // Warning when GC pauses exceed this duration
+	GCPauseMs               float64 // SetWarning when GC pauses exceed this duration
 	GoroutineCount          int     // Number of goroutines
-	MaxGCFrequency          float64 // Warning when GC runs too frequently (times per minute)
-	MemoryGrowthRatePercent float64 // Warning when memory grows too fast (percent per minute)
+	MaxGCFrequency          float64 // SetWarning when GC runs too frequently (times per minute)
+	MemoryGrowthRatePercent float64 // SetWarning when memory grows too fast (percent per minute)
 	MemoryPercent           float64 // Percentage of total memory used
 	ServerErrorRatePercent  float64 // Lower threshold for 5xx errors
 }
 
 // DefaultThresholds provides default threshold values
 var DefaultThresholds = Thresholds{
-	CPUPercent:              75.0,  // Warning at 75% CPU usage
+	CPUPercent:              75.0,  // SetWarning at 75% CPU usage
 	ClientErrorRatePercent:  40.0,  // Allow higher rate for client errors
-	DiskPercent:             85.0,  // Warning at 85% disk usage
+	DiskPercent:             85.0,  // SetWarning at 85% disk usage
 	GCPauseMs:               100.0, // 100ms pause time might affect responsiveness
-	GoroutineCount:          1000,  // Warning at 1000 goroutines
+	GoroutineCount:          1000,  // SetWarning at 1000 goroutines
 	MaxGCFrequency:          100.0, // More than 100 GCs per minute might indicate pressure
 	MemoryGrowthRatePercent: 20.0,  // 20% growth per minute might indicate a leak
-	MemoryPercent:           80.0,  // Warning at 80% memory usage
+	MemoryPercent:           80.0,  // SetWarning at 80% memory usage
 	ServerErrorRatePercent:  1.0,   // Very low tolerance for server errors
 }
 

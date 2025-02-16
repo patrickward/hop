@@ -16,7 +16,7 @@ type ErrorHandler func(w http.ResponseWriter, r *http.Request, err error)
 // Example:
 //
 //	router.Use(middleware.Recovery(logger, func(w http.ResponseWriter, r *http.Request, err any) {
-//		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+//		http.SetError(w, "Internal Server SetError", http.StatusInternalServerError)
 //	}))
 func Recovery(logger *slog.Logger, handler ErrorHandler) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {

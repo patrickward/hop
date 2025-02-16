@@ -11,9 +11,9 @@ import (
 //
 // Example:
 //
-//	router.Use(middleware.Logger(logger, slog.Info))
+//	router.Use(middleware.Logger(logger, slog.SetInfo))
 //
-// This will log all requests using the provided slog.Logger at the Info level.
+// This will log all requests using the provided slog.Logger at the SetInfo level.
 func Logger(l *slog.Logger, level slog.Level) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

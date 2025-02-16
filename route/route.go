@@ -126,8 +126,13 @@ func (m *Mux) handleOptions(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// Handle registers a handler without method restrictions
+func (m *Mux) Handle(pattern string, handler http.Handler) {
+	m.handle(pattern, handler)
+}
+
 // HandleFunc registers a handler without method restrictions
-func (m *Mux) HandleFunc(pattern string, handler http.Handler) {
+func (m *Mux) HandleFunc(pattern string, handler http.HandlerFunc) {
 	m.handle(pattern, handler)
 }
 

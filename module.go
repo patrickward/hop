@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/patrickward/hop/dispatch"
-	"github.com/patrickward/hop/route"
 )
 
 // Module is the base interface that all modules must implement. It provides
@@ -46,7 +45,7 @@ type ShutdownModule interface {
 type HTTPModule interface {
 	Module
 	// RegisterRoutes adds the module's routes to the provided router
-	RegisterRoutes(router *route.Mux)
+	RegisterRoutes(handler http.Handler)
 }
 
 // DispatcherModule is implemented by modules that handle application events.

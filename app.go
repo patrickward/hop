@@ -19,7 +19,6 @@ import (
 	"github.com/patrickward/hop/flash"
 	"github.com/patrickward/hop/render"
 	"github.com/patrickward/hop/render/htmx"
-	"github.com/patrickward/hop/route"
 	"github.com/patrickward/hop/serve"
 	"github.com/patrickward/hop/utils"
 )
@@ -38,6 +37,8 @@ type AppConfig struct {
 	Host string
 	// Port is the port to bind the server to (default: 8080)
 	Port int
+	// Handler is the http.Handler to use for the server (default: http.DefaultServeMux)
+	Handler http.Handler
 	// IdleTimeout is the maximum amount of time to wait for the next request when keep-alives are enabled (default: 120s)
 	IdleTimeout time.Duration
 	// ReadTimeout is the maximum duration before timing out read of the request (default: 5s)
@@ -86,7 +87,7 @@ type App struct {
 	firstError     error                       // first error that occurred during initialization
 	logger         *slog.Logger                // logger instance
 	server         *serve.Server               // server instance
-	router         *route.Mux                  // router instance
+	handler        http.Handler                // the http.Handler for the server
 	tm             *render.TemplateManager     // template manager instance
 	events         *dispatch.Dispatcher        // event bus instance
 	session        *scs.SessionManager         // session manager instance
@@ -128,7 +129,9 @@ func New(cfg AppConfig) (*App, error) {
 	sm := createSessionStore(&cfg)
 
 	// Create router
-	router := route.New()
+	if cfg.Handler == nil {
+		cfg.Handler = http.DefaultServeMux
+	}
 
 	if cfg.Environment == "" {
 		cfg.Environment = "development"
@@ -143,7 +146,7 @@ func New(cfg AppConfig) (*App, error) {
 		logger:      cfg.Logger,
 		events:      eventBus,
 		modules:     make(map[string]Module),
-		router:      router,
+		handler:     cfg.Handler,
 		session:     sm,
 		startOrder:  make([]string, 0),
 		tm:          tm,
@@ -156,7 +159,7 @@ func New(cfg AppConfig) (*App, error) {
 		ReadTimeout:     cfg.ReadTimeout,
 		WriteTimeout:    cfg.WriteTimeout,
 		ShutdownTimeout: cfg.ShutdownTimeout,
-		Router:          router,
+		Handler:         cfg.Handler,
 		Logger:          cfg.Logger,
 	})
 	app.server.OnShutdown(func(ctx context.Context) error {
@@ -209,7 +212,7 @@ func (a *App) RegisterModule(m Module) *App {
 	}
 
 	if h, ok := m.(HTTPModule); ok {
-		h.RegisterRoutes(a.router)
+		h.RegisterRoutes(a.handler)
 	}
 
 	return a
@@ -313,8 +316,8 @@ func (a *App) Flash() *flash.Manager {
 	return a.flash
 }
 
-// Router returns the router instance for the app
-func (a *App) Router() *route.Mux { return a.router }
+// Handler returns the http.Handler for the app
+func (a *App) Handler() http.Handler { return a.handler }
 
 // Session returns the session manager instance for the app
 func (a *App) Session() *scs.SessionManager { return a.session }
@@ -391,40 +394,40 @@ func (a *App) NewTemplateData(r *http.Request) map[string]any {
 // Route Functions (TEMPORARY)
 // -----------------------------------------------------------------------------
 
-// AddRoute adds a new route to the server, using the newer v1.22 http.Handler interface. It takes a pattern, an http.Handler, and an optional list of middleware.
-func (a *App) AddRoute(pattern string, handler http.Handler, middleware ...route.Middleware) {
-	if len(middleware) > 0 {
-		// Create a chain of middleware and wrap the handler
-		chain := route.NewChain(middleware...).Then(handler)
-		a.router.Handle(pattern, chain)
-		return
-	}
-	a.router.Handle(pattern, handler)
-}
-
-// AddChainedRoute adds a new route to the server with a chain of middleware
-// It takes a pattern, an http.Handler, and a route.Chain struct
-func (a *App) AddChainedRoute(pattern string, handler http.Handler, chain route.Chain) {
-	a.router.Handle(pattern, chain.Then(handler))
-}
-
-// AddRoutes adds multiple routes to the server. It takes a map of patterns to http.Handlers and an optional list of middleware.
-func (a *App) AddRoutes(routes map[string]http.Handler, middleware ...route.Middleware) {
-	for pattern, handler := range routes {
-		if len(middleware) > 0 {
-			a.AddRoute(pattern, handler, middleware...)
-			continue
-		}
-		a.AddRoute(pattern, handler)
-	}
-}
-
-// AddChainedRoutes adds multiple routes to the server with a chain of middleware
-func (a *App) AddChainedRoutes(routes map[string]http.Handler, chain route.Chain) {
-	for pattern, handler := range routes {
-		a.AddChainedRoute(pattern, handler, chain)
-	}
-}
+//// AddRoute adds a new route to the server, using the newer v1.22 http.Handler interface. It takes a pattern, an http.Handler, and an optional list of middleware.
+//func (a *App) AddRoute(pattern string, handler http.Handler, middleware ...route.Middleware) {
+//	if len(middleware) > 0 {
+//		// Create a chain of middleware and wrap the handler
+//		chain := route.NewChain(middleware...).Then(handler)
+//		a.router.Handle(pattern, chain)
+//		return
+//	}
+//	a.router.Handle(pattern, handler)
+//}
+//
+//// AddChainedRoute adds a new route to the server with a chain of middleware
+//// It takes a pattern, an http.Handler, and a route.Chain struct
+//func (a *App) AddChainedRoute(pattern string, handler http.Handler, chain route.Chain) {
+//	a.router.Handle(pattern, chain.Then(handler))
+//}
+//
+//// AddRoutes adds multiple routes to the server. It takes a map of patterns to http.Handlers and an optional list of middleware.
+//func (a *App) AddRoutes(routes map[string]http.Handler, middleware ...route.Middleware) {
+//	for pattern, handler := range routes {
+//		if len(middleware) > 0 {
+//			a.AddRoute(pattern, handler, middleware...)
+//			continue
+//		}
+//		a.AddRoute(pattern, handler)
+//	}
+//}
+//
+//// AddChainedRoutes adds multiple routes to the server with a chain of middleware
+//func (a *App) AddChainedRoutes(routes map[string]http.Handler, chain route.Chain) {
+//	for pattern, handler := range routes {
+//		a.AddChainedRoute(pattern, handler, chain)
+//	}
+//}
 
 // -----------------------------------------------------------------------------
 // Private functions

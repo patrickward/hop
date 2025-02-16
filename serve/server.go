@@ -13,8 +13,6 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
-
-	"github.com/patrickward/hop/route"
 )
 
 // DataFunc is a function type that takes an HTTP request and a pointer to a map of data.
@@ -30,7 +28,7 @@ type Server struct {
 	onShutdown      func(context.Context) error
 	httpServer      *http.Server
 	logger          *slog.Logger
-	router          *route.Mux
+	handler         http.Handler
 	wg              *sync.WaitGroup
 	stopChan        chan struct{}
 	stopping        sync.Once
@@ -42,20 +40,20 @@ type Config struct {
 	ReadTimeout     time.Duration
 	WriteTimeout    time.Duration
 	ShutdownTimeout time.Duration
-	Router          *route.Mux
+	Handler         http.Handler
 	Logger          *slog.Logger
 }
 
 // NewServer creates a new server with the given configuration and logger.
 func NewServer(cfg Config) *Server {
-	if cfg.Router == nil {
-		cfg.Router = route.New()
+	if cfg.Handler == nil {
+		cfg.Handler = http.DefaultServeMux
 	}
 
 	httpServer := &http.Server{
 		//Addr:         fmt.Sprintf(":%d", config.Server.Port),
 		Addr:         cfg.Address,
-		Handler:      cfg.Router,
+		Handler:      cfg.Handler,
 		ErrorLog:     slog.NewLogLogger(cfg.Logger.Handler(), slog.LevelWarn),
 		IdleTimeout:  cfg.IdleTimeout,
 		ReadTimeout:  cfg.ReadTimeout,
@@ -70,7 +68,7 @@ func NewServer(cfg Config) *Server {
 		shutdownTimeout: cfg.ShutdownTimeout,
 		httpServer:      httpServer,
 		logger:          cfg.Logger,
-		router:          cfg.Router,
+		handler:         cfg.Handler,
 		wg:              &sync.WaitGroup{},
 		stopChan:        make(chan struct{}),
 	}
@@ -81,11 +79,6 @@ func NewServer(cfg Config) *Server {
 // Logger returns the logger for the server.
 func (s *Server) Logger() *slog.Logger {
 	return s.logger
-}
-
-// Router returns the router for the server.
-func (s *Server) Router() *route.Mux {
-	return s.router
 }
 
 // OnShutdown registers a shutdown handler to be called before the server stops

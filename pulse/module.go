@@ -63,27 +63,64 @@ func (m *Module) Init() error {
 	return nil
 }
 
-func (m *Module) RegisterRoutes(router *route.Mux) {
-	// The middleware needs to be added at the top level to capture all requests
-	router.Use(m.MetricsMiddleware())
+func (m *Module) RegisterRoutes(handler http.Handler) {
+	if router, ok := handler.(*route.Mux); ok {
+		// The middleware needs to be added at the top level to capture all requests
+		router.Use(m.MetricsMiddleware())
 
-	// Register metrics endpoint, use a group to apply auth middleware if configured
-	router.Group(func(g *route.Group) {
-		if m.config.RouteUsername != "" && m.config.RoutePassword != "" {
-			g.Use(m.AuthMiddleware())
+		// Register metrics endpoint, use a group to apply auth middleware if configured
+		router.Group(func(g *route.Group) {
+			if m.config.RouteUsername != "" && m.config.RoutePassword != "" {
+				g.Use(m.AuthMiddleware())
+			}
+			g.Get(m.config.RoutePath, m.collector.Handler())
+		})
+
+		// Optionally register pprof endpoints
+		if m.config.EnablePprof {
+			router.HandleFunc("/pulse/pprof/", http.HandlerFunc(pprof.Index))
+			router.HandleFunc("/pulse/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
+			router.HandleFunc("/pulse/pprof/profile", http.HandlerFunc(pprof.Profile))
+			router.HandleFunc("/pulse/pprof/symbol", http.HandlerFunc(pprof.Symbol))
+			router.HandleFunc("/pulse/pprof/trace", http.HandlerFunc(pprof.Trace))
 		}
-		g.Get(m.config.RoutePath, m.collector.Handler())
-	})
-
-	// Optionally register pprof endpoints
-	if m.config.EnablePprof {
-		router.HandleFunc("/pulse/pprof/", http.HandlerFunc(pprof.Index))
-		router.HandleFunc("/pulse/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
-		router.HandleFunc("/pulse/pprof/profile", http.HandlerFunc(pprof.Profile))
-		router.HandleFunc("/pulse/pprof/symbol", http.HandlerFunc(pprof.Symbol))
-		router.HandleFunc("/pulse/pprof/trace", http.HandlerFunc(pprof.Trace))
 	}
 }
+
+//// Router is an interface for registering HTTP handlers
+//type Router interface {
+//	Handle(path string, handler http.Handler)
+//	HandleFunc(path string, handler http.HandlerFunc)
+//}
+//
+//// RegisterRoutes registers our routes with the provided router
+//func (m *Module) RegisterRoutes(handler http.Handler) {
+//	if handler == nil {
+//		return
+//	}
+//
+//	if router, ok := handler.(Router); ok {
+//		// The metrics middleware needs to be added at the top level to capture all requests
+//
+//		handler = m.MetricsMiddleware()(handler)
+//
+//		// Register metrics endpoint
+//		metricsHandler := m.collector.Handler()
+//		if m.config.RouteUsername != "" && m.config.RoutePassword != "" {
+//			metricsHandler = m.AuthMiddleware()(metricsHandler)
+//		}
+//		router.Handle(m.config.RoutePath, metricsHandler)
+//
+//		// Register pprof endpoints if enabled
+//		if m.config.EnablePprof {
+//			router.HandleFunc("/pulse/pprof/", pprof.Index)
+//			router.HandleFunc("/pulse/pprof/cmdline", pprof.Cmdline)
+//			router.HandleFunc("/pulse/pprof/profile", pprof.Profile)
+//			router.HandleFunc("/pulse/pprof/symbol", pprof.Symbol)
+//			router.HandleFunc("/pulse/pprof/trace", pprof.Trace)
+//		}
+//	}
+//}
 
 // Start begins periodic collection of system metrics
 func (m *Module) Start(ctx context.Context) error {
@@ -120,7 +157,7 @@ func (m *Module) Stop(ctx context.Context) error {
 }
 
 // MetricsMiddleware creates route.Middleware for collecting HTTP metrics
-func (m *Module) MetricsMiddleware() route.Middleware {
+func (m *Module) MetricsMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
@@ -141,7 +178,7 @@ func (m *Module) MetricsMiddleware() route.Middleware {
 }
 
 // AuthMiddleware creates route.Middleware for authenticating requests to the metrics endpoint
-func (m *Module) AuthMiddleware() route.Middleware {
+func (m *Module) AuthMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if m.config.RoutePassword == "" {

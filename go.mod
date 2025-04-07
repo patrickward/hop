@@ -1,4 +1,4 @@
-module github.com/patrickward/hop
+module github.com/patrickward/hop/v2
 
 go 1.23.1
 

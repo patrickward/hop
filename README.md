@@ -23,6 +23,8 @@ This is not a general-purpose web framework. It was built for specific use cases
 
 ## Quick Start
 
+TBD
+
 ```go
 package main
 
@@ -30,33 +32,69 @@ import (
     "context"
     "log"
 
-    "github.com/patrickward/hop"
-    "github.com/patrickward/hop/conf"
-    "github.com/patrickward/hop/render"
+    "github.com/patrickward/hop/v2"
+	
+   "github.com/<owner>/<project>/internal/app"     
 )
 
 func main() {
-    // Create app configuration
-    cfg := &hop.AppConfig{
-        Config: conf.NewConfig(),
-        TemplateSources: render.Sources{
-            "": embeddedTemplates,  // Your embedded templates
-        },
-    }
+	// Load configuration from somewhere
+	cfg, err := app.NewConfigFromEnv(envPrefix)
+	
+	// Create app
+	appCfg := hop.AppConfig{
+		Environment:           cfg.Environment,
+		Host:                  cfg.ServerHost,
+		Port:                  cfg.ServerPort,
+		Handler:               mux,
+		IdleTimeout:           cfg.ServerIdleTimeout,
+		ReadTimeout:           cfg.ServerReadTimeout,
+		WriteTimeout:          cfg.ServerWriteTimeout,
+		ShutdownTimeout:       cfg.ServerShutdownTimeout,
+		Logger:                logger,
+		SessionStore:          store,
+		SessionLifetime:       cfg.SessionLifetime,
+		SessionCookiePersist:  cfg.SessionCookiePersist,
+		SessionCookieSameSite: cfg.SessionCookieSameSite,
+		SessionCookieSecure:   cfg.SessionCookieSecure,
+		SessionCookieHTTPOnly: cfg.SessionCookieHTTPOnly,
+		SessionCookiePath:     cfg.SessionCookiePath,
+		TemplateFS:            templates.FS,
+		TemplateFuncs:         funcs.NewFuncMap(),
+		Stdout:                stdout,
+		Stderr:                stderr,
+	}
 
-    // Initialize the app
-    app, err := hop.New(cfg)
-    if err != nil {
-        log.Fatal(err)
-    }
 
-    // Register modules
-    app.RegisterModule(mymodule.New())
+	// Initialize the app
+	hopApp, err := hop.New(appConfig)
+	if err != nil {
+		return fmt.Errorf("error creating application: %w", err)
+	}
 
-    // Start the app
-    if err := app.Start(context.Background()); err != nil {
-        log.Fatal(err)
-    }
+	hopApp.SetSystemPagesLayout("minimal")
+	
+	// Set up the app
+	// ===============
+	a := app.New(app.Settings{
+		App:        hopApp,
+		Config:     cfg,
+		DB:         d,
+		Logger:     logger,
+		Mailer:     mailer,
+		Name:       AppName,
+		Version:    AppVersion,
+		BuildTime:  BuildTime,
+		CommitHash: CommitHash,
+	})
+	
+
+	// Start the server, blocking until it exits
+	// ==============
+	if err := a.Start(context.Background()); err != nil {
+		return fmt.Errorf("error starting server: %w", err)
+	}
+
 }
 ```
 

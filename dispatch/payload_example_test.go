@@ -7,7 +7,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/patrickward/hop/dispatch"
+	"github.com/patrickward/hop/v2/dispatch"
 )
 
 func ExamplePayloadAs() {

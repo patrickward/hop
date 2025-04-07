@@ -3,7 +3,7 @@ package trigger_test
 import (
 	"testing"
 
-	"github.com/patrickward/hop/view/htmx/trigger"
+	"github.com/patrickward/hop/v2/view/htmx/trigger"
 )
 
 func TestTriggers_Encode(t *testing.T) {

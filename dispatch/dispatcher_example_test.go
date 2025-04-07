@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/patrickward/hop/dispatch"
+	"github.com/patrickward/hop/v2/dispatch"
 )
 
 func ExampleNewEvent() {

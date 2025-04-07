@@ -3,9 +3,9 @@ package view
 import (
 	"net/http"
 
-	"github.com/patrickward/hop/view/htmx"
-	"github.com/patrickward/hop/view/htmx/location"
-	"github.com/patrickward/hop/view/htmx/swap"
+	"github.com/patrickward/hop/v2/view/htmx"
+	"github.com/patrickward/hop/v2/view/htmx/location"
+	"github.com/patrickward/hop/v2/view/htmx/swap"
 )
 
 // HxLocation sets the HX-Location header, which instructs the browser to navigate to the given path without reloading the page.

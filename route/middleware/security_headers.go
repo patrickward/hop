@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/patrickward/hop/route"
+	"github.com/patrickward/hop/v2/route"
 )
 
 // SecurityHeadersOptions contains configuration for security headers

@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/patrickward/hop/flash"
-	"github.com/patrickward/hop/view/htmx"
-	"github.com/patrickward/hop/view/htmx/trigger"
+	"github.com/patrickward/hop/v2/flash"
+	"github.com/patrickward/hop/v2/view/htmx"
+	"github.com/patrickward/hop/v2/view/htmx/trigger"
 )
 
 // Response represents a view response to an HTTP request using html/template

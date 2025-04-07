@@ -14,7 +14,7 @@ The dispatch package provides a simple, type-safe event bus system for Go applic
 ## Installation
 
 ```bash
-go get github.com/patrickward/hop/dispatch
+go get github.com/patrickward/hop/v2/dispatch
 ```
 
 ## Quick Start
@@ -28,7 +28,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/patrickward/hop/dispatch"
+	"github.com/patrickward/hop/v2/dispatch"
 )
 
 func main() {
@@ -195,7 +195,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/patrickward/hop/dispatch"
+	"github.com/patrickward/hop/v2/dispatch"
 )
 
 type OrderCreated struct {

@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/patrickward/hop/route"
+	"github.com/patrickward/hop/v2/route"
 )
 
 func emptyHandler() http.Handler {

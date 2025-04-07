@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/patrickward/hop/view/htmx"
+	"github.com/patrickward/hop/v2/view/htmx"
 )
 
 // RedirectWithHTMX sends an HX-Redirect header to the client

@@ -5,8 +5,8 @@ import (
 
 	"github.com/justinas/nosurf"
 
-	"github.com/patrickward/hop/route"
-	"github.com/patrickward/hop/utils"
+	"github.com/patrickward/hop/v2/route"
+	"github.com/patrickward/hop/v2/utils"
 )
 
 // PreventCSRFOptions provides options for PreventCSRF

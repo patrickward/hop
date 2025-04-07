@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/patrickward/hop/view"
+	"github.com/patrickward/hop/v2/view"
 )
 
 // Test data structures

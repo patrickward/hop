@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/patrickward/hop/route"
+	"github.com/patrickward/hop/v2/route"
 )
 
 func TestChain(t *testing.T) {

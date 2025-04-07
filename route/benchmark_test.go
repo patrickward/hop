@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/patrickward/hop/route"
+	"github.com/patrickward/hop/v2/route"
 )
 
 // noopHandler is a simple handler that does nothing

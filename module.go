@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/patrickward/hop/dispatch"
+	"github.com/patrickward/hop/v2/dispatch"
 )
 
 // Module is the base interface that all modules must implement. It provides

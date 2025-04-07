@@ -16,12 +16,12 @@ import (
 	"github.com/alexedwards/scs/v2"
 	"github.com/justinas/nosurf"
 
-	"github.com/patrickward/hop/dispatch"
-	"github.com/patrickward/hop/flash"
-	"github.com/patrickward/hop/serve"
-	"github.com/patrickward/hop/utils"
-	"github.com/patrickward/hop/view"
-	"github.com/patrickward/hop/view/htmx"
+	"github.com/patrickward/hop/v2/dispatch"
+	"github.com/patrickward/hop/v2/flash"
+	"github.com/patrickward/hop/v2/serve"
+	"github.com/patrickward/hop/v2/utils"
+	"github.com/patrickward/hop/v2/view"
+	"github.com/patrickward/hop/v2/view/htmx"
 )
 
 // OnTemplateDataFunc is a function type that takes an HTTP request and a pointer to a map of data.

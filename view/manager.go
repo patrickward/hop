@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/patrickward/hop/flash"
+	"github.com/patrickward/hop/v2/flash"
 )
 
 // TemplateManager is a template adapter for the HyperView framework that uses the Go html/template package.

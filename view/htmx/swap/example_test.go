@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/patrickward/hop/view/htmx/swap"
+	"github.com/patrickward/hop/v2/view/htmx/swap"
 )
 
 func ExampleInnerHTML() {

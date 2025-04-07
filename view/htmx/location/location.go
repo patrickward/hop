@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/patrickward/hop/view/htmx/swap"
+	"github.com/patrickward/hop/v2/view/htmx/swap"
 )
 
 type Option func(*Location)

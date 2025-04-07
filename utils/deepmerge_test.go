@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/patrickward/hop/utils"
+	"github.com/patrickward/hop/v2/utils"
 )
 
 func TestDeepMerge(t *testing.T) {

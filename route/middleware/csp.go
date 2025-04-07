@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/patrickward/hop/route"
+	"github.com/patrickward/hop/v2/route"
 )
 
 // ContentSecurityPolicyOptions contains the options for the Content-Security-Policy header.

@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/patrickward/hop/route/middleware"
+	"github.com/patrickward/hop/v2/route/middleware"
 )
 
 func TestRecovery(t *testing.T) {

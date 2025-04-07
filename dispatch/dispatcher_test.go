@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/patrickward/hop/dispatch"
+	"github.com/patrickward/hop/v2/dispatch"
 )
 
 func newTestLogger(out io.Writer) *slog.Logger {

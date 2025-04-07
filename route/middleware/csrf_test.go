@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/patrickward/hop/route/middleware"
+	"github.com/patrickward/hop/v2/route/middleware"
 )
 
 func TestPreventCSRF(t *testing.T) {

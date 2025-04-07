@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/patrickward/hop/view"
-	"github.com/patrickward/hop/view/testdata/source1"
+	"github.com/patrickward/hop/v2/view"
+	"github.com/patrickward/hop/v2/view/testdata/source1"
 )
 
 type TestData struct {

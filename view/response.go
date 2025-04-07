@@ -29,6 +29,7 @@ type Response struct {
 func NewResponse(tm *TemplateManager) *Response {
 	return &Response{
 		tm:         tm,
+		layout:     DefaultBaseLayout,
 		status:     http.StatusOK,
 		pageData:   NewPageData(),
 		headers:    make(map[string]string),

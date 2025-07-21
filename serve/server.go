@@ -15,10 +15,34 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// DataFunc is a function type that takes an HTTP request and a pointer to a map of data.
-// It represents a callback function that can be used to populate data for templates.
-type DataFunc func(r *http.Request, data *map[string]any)
+type ServerState int
 
+const (
+	ServerStateNew          ServerState = iota + 1 // Server is newly created and not started
+	ServerStateStarting                            // Server is starting up
+	ServerStateRunning                             // Server is currently running
+	ServerStateShuttingDown                        // Server is in the process of shutting down
+	ServerStateStopped                             // Server has been stopped
+)
+
+func (s ServerState) String() string {
+	switch s {
+	case ServerStateNew:
+		return "new"
+	case ServerStateStarting:
+		return "starting"
+	case ServerStateRunning:
+		return "running"
+	case ServerStateShuttingDown:
+		return "shutting_down"
+	case ServerStateStopped:
+		return "stopped"
+	default:
+		return "unknown"
+	}
+}
+
+// Server represents an HTTP server with configurable settings and graceful shutdown capabilities.
 type Server struct {
 	address         string
 	idleTimeout     time.Duration
@@ -32,8 +56,11 @@ type Server struct {
 	wg              *sync.WaitGroup
 	stopChan        chan struct{}
 	stopping        sync.Once
+	state           ServerState
+	stateMu         sync.RWMutex // Protects the server state
 }
 
+// Config holds the configuration for the server.
 type Config struct {
 	Address         string
 	IdleTimeout     time.Duration
@@ -48,6 +75,26 @@ type Config struct {
 func NewServer(cfg Config) *Server {
 	if cfg.Handler == nil {
 		cfg.Handler = http.DefaultServeMux
+	}
+
+	if cfg.Logger == nil {
+		cfg.Logger = slog.Default()
+	}
+
+	if cfg.IdleTimeout == 0 {
+		cfg.IdleTimeout = 120 * time.Second
+	}
+
+	if cfg.ReadTimeout == 0 {
+		cfg.ReadTimeout = 5 * time.Second
+	}
+
+	if cfg.WriteTimeout == 0 {
+		cfg.WriteTimeout = 10 * time.Second
+	}
+
+	if cfg.ShutdownTimeout == 0 {
+		cfg.ShutdownTimeout = 30 * time.Second
 	}
 
 	httpServer := &http.Server{
@@ -71,9 +118,29 @@ func NewServer(cfg Config) *Server {
 		handler:         cfg.Handler,
 		wg:              &sync.WaitGroup{},
 		stopChan:        make(chan struct{}),
+		state:           ServerStateNew,
 	}
 
 	return srv
+}
+
+func (s *Server) State() ServerState {
+	s.stateMu.RLock()
+	defer s.stateMu.RUnlock()
+	return s.state
+}
+
+func (s *Server) setState(state ServerState) {
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+
+	oldState := s.state
+	s.state = state
+	if oldState != state {
+		s.logger.Info("server state changed",
+			slog.String("old_state", oldState.String()),
+			slog.String("new_state", state.String()))
+	}
 }
 
 // Logger returns the logger for the server.
@@ -109,6 +176,13 @@ func (s *Server) BackgroundTask(r *http.Request, fn func() error) {
 
 // Start starts the server and listens for incoming requests. It will block until the server is shut down.
 func (s *Server) Start() error {
+	// Check if the server is already running or has been used
+	if s.State() != ServerStateNew {
+		return fmt.Errorf("server cannot be started: current state is %s", s.State())
+	}
+
+	s.setState(ServerStateStarting)
+
 	// Create base context for signals
 	ctx, stop := signal.NotifyContext(context.Background(),
 		syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
@@ -139,8 +213,11 @@ func (s *Server) Start() error {
 		s.logger.Info("starting server",
 			slog.Group("server", slog.String("addr", s.httpServer.Addr)))
 
+		s.setState(ServerStateRunning)
+
 		if err := s.httpServer.ListenAndServe(); err != nil &&
 			!errors.Is(err, http.ErrServerClosed) {
+			s.setState(ServerStateStopped)
 			return fmt.Errorf("server error: %w", err)
 		}
 		return nil
@@ -150,14 +227,18 @@ func (s *Server) Start() error {
 	eg.Go(func() error {
 		<-gCtx.Done()
 
+		s.setState(ServerStateShuttingDown)
 		s.logger.Info("initiating graceful shutdown")
 
-		// Split the shutdown timeout between WaitGroup and server shutdown
-		totalTimeout := s.shutdownTimeout
-		wgTimeout := totalTimeout / 2
-		serverTimeout := totalTimeout - wgTimeout
+		// Use a single context for the shutdown process
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), s.shutdownTimeout)
+		defer shutdownCancel()
 
-		// Wait for background tasks
+		// Wait for background tasks with a portion of the shutdown timeout
+		wgTimeout := s.shutdownTimeout / 2
+		wgCtx, wgCancel := context.WithTimeout(shutdownCtx, wgTimeout)
+		defer wgCancel()
+
 		wgDone := make(chan struct{})
 		go func() {
 			s.logger.Info("waiting for background tasks to complete",
@@ -165,10 +246,6 @@ func (s *Server) Start() error {
 			s.wg.Wait()
 			close(wgDone)
 		}()
-
-		// Create context for WaitGroup timeout
-		wgCtx, wgCancel := context.WithTimeout(context.Background(), wgTimeout)
-		defer wgCancel()
 
 		// Wait for either WaitGroup completion or timeout
 		select {
@@ -186,27 +263,25 @@ func (s *Server) Start() error {
 			}
 		}
 
-		// Create context for server shutdown
-		shutdownCtx, shutdownCancel := context.WithTimeout(
-			context.Background(),
-			serverTimeout,
-		)
-		defer shutdownCancel()
-
-		s.logger.Info("shutting down http server",
-			slog.Duration("timeout", serverTimeout))
-
-		// Proceed with server shutdown
+		// Use the remaining time for server shutdown
+		s.logger.Info("shutting down http server")
 		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
 			return fmt.Errorf("shutdown error: %w", err)
 		}
 
+		s.setState(ServerStateStopped)
 		return nil
 	})
 
-	// Wait for all errgroup goroutines to complete or error
-	if err := eg.Wait(); err != nil &&
-		!errors.Is(err, context.Canceled) {
+	// Wait for all goroutines to complete or error
+	err := eg.Wait()
+
+	// Ensure the server state is set to `stopped` if it wasn't already
+	if s.State() != ServerStateStopped {
+		s.setState(ServerStateStopped)
+	}
+
+	if err != nil && !errors.Is(err, context.Canceled) {
 		return fmt.Errorf("server error: %w", err)
 	}
 
@@ -216,17 +291,46 @@ func (s *Server) Start() error {
 
 // Shutdown initiates a graceful shutdown of the server
 func (s *Server) Shutdown(ctx context.Context) error {
+	currentState := s.State()
+
+	if currentState >= ServerStateShuttingDown {
+		s.logger.Warn("shutdown requested while already shutting down or stopped", slog.String("state", currentState.String()))
+		return nil
+	}
+
+	if currentState != ServerStateRunning {
+		return fmt.Errorf("server cannot be shut down: current state is %s", currentState)
+	}
+
+	s.logger.Info("shutdown requested", slog.String("state", currentState.String()))
+
 	// Use sync.Once to ensure we only trigger shutdown once
 	s.stopping.Do(func() {
 		close(s.stopChan)
 	})
 
-	// Wait for the context to be done or a reasonable timeout
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-time.After(time.Second):
-		// Give a short grace period for shutdown to begin
-		return nil
-	}
+	// Don't wait for the context or return its error - just trigger the shutdown process
+	// The actual shutdown will be handled in the Start method's goroutine
+	return nil
+}
+
+// IsRunning returns true if the server is currently running
+func (s *Server) IsRunning() bool {
+	return s.State() == ServerStateRunning
+}
+
+// IsShuttingDown returns true if the server is in the process of shutting down
+func (s *Server) IsShuttingDown() bool {
+	return s.State() == ServerStateShuttingDown
+}
+
+// IsStopped returns true if the server has stopped
+func (s *Server) IsStopped() bool {
+	return s.State() == ServerStateStopped
+}
+
+// CanAcceptRequests returns true if the server can accept new requests
+func (s *Server) CanAcceptRequests() bool {
+	state := s.State()
+	return state == ServerStateRunning
 }

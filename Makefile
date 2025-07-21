@@ -44,20 +44,10 @@ lint:
 docs:
 	@godoc -http=:6060 -notes="BUG|TODO|NOTE|IMPORTANT" -play
 
-## build-readme: generate the README.md file
-.PHONY: build-readme
-build-readme:
-	@go run github.com/posener/goreadme/cmd/goreadme -license LICENSE -o README.md
-
 ## test: run all tests for the project
 .PHONY: test
 test:
 	go test -v -race -buildvcs ./...
-
-## test/mail: run all integration tests for the mail package. Requires a mailpit server running. See mail/README.md
-.PHONY: test/mail
-test/mail:
-	@TEST_MAILPIT=1 go test -v -race -buildvcs -tags=integration ./mail
 
 ## test/unit pkg=$1: run all unit tests for the given package
 .PHONY: test/unit

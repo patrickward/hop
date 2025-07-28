@@ -149,7 +149,17 @@ func (s *Server) Logger() *slog.Logger {
 }
 
 // OnShutdown registers a shutdown handler to be called before the server stops
+// This must be called before Start() is called, otherwise it will have no effect.
 func (s *Server) OnShutdown(fn func(context.Context) error) {
+	s.stateMu.RLock()
+	defer s.stateMu.RUnlock()
+
+	if s.state != ServerStateNew {
+		s.logger.Warn("OnShutdown handler registered after server start",
+			slog.String("state", s.State().String()))
+		return
+	}
+
 	s.onShutdown = fn
 }
 

@@ -1,0 +1,22 @@
+{{define "page:main"}}
+    <div class="home-content">
+        <h2>{{.Title}}</h2>
+        <p>{{.Data.Content}}</p>
+        <p>Welcome, {{.Data.User}}!</p>
+        {{if .HasMessages}}
+            <div class="messages">
+                {{range .Messages}}
+                    <div class="message {{.Type}}">{{.Content}}</div>
+                {{end}}
+            </div>
+        {{end}}
+
+        {{if .HasFlash}}
+            <div class="flash-messages">
+                {{range .Flash}}
+                    <div class="flash {{.Type}}">{{.Content}}</div>
+                {{end}}
+            </div>
+        {{end}}
+    </div>
+{{end}}

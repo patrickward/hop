@@ -1,7 +1,0 @@
-{{define "page:main"}}
-    <div class="home-content">
-        <h2>{{.Title}}</h2>
-        <p>{{.Data.Content}}</p>
-        <p>Welcome, {{.Data.User}}!</p>
-    </div>
-{{end}}

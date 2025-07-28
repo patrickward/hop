@@ -13,60 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/patrickward/hop/v2"
-	"github.com/patrickward/hop/v2/route"
 )
-
-// Mock modules for testing
-type mockModule struct {
-	id       string
-	initErr  error
-	startErr error
-	stopErr  error
-	initDone chan struct{}
-}
-
-func (m *mockModule) ID() string { return m.id }
-func (m *mockModule) Init() error {
-	if m.initDone != nil {
-		defer close(m.initDone)
-	}
-	return m.initErr
-}
-
-func (m *mockModule) Start(ctx context.Context) error {
-	select {
-	case <-ctx.Done():
-		return fmt.Errorf("module %s: %w", m.id, ctx.Err())
-	default:
-		if m.startErr != nil {
-			return fmt.Errorf("module %s: %w", m.id, m.startErr)
-		}
-		return nil
-	}
-}
-
-func (m *mockModule) Stop(ctx context.Context) error {
-	select {
-	case <-ctx.Done():
-		return fmt.Errorf("module %s: %w", m.id, ctx.Err())
-	default:
-		if m.stopErr != nil {
-			return fmt.Errorf("module %s: %w", m.id, m.stopErr)
-		}
-		return nil
-	}
-}
-
-type mockHTTPModule struct {
-	mockModule
-	handlers map[string]http.HandlerFunc
-}
-
-func (m *mockHTTPModule) RegisterRoutes(router *route.Mux) {
-	for pattern, handler := range m.handlers {
-		router.HandleFunc(pattern, handler)
-	}
-}
 
 func TestModuleRegistration(t *testing.T) {
 	tests := []struct {
@@ -388,102 +335,6 @@ func TestModuleLifecycle(t *testing.T) {
 	}
 }
 
-//func TestHTTPModuleRoutes(t *testing.T) {
-//	tests := []struct {
-//		name       string
-//		module     hop.Module
-//		reqMethod  string
-//		reqPath    string
-//		wantStatus int
-//	}{
-//		{
-//			name: "registered route responds",
-//			module: &mockHTTPModule{
-//				mockModule: mockModule{id: "http1"},
-//				handlers: map[string]http.HandlerFunc{
-//					"/test": func(w http.ResponseWriter, r *http.Request) {
-//						w.WriteHeader(http.StatusOK)
-//					},
-//				},
-//			},
-//			reqMethod:  "GET",
-//			reqPath:    "/test",
-//			wantStatus: http.StatusOK,
-//		},
-//		{
-//			name: "unregistered route returns 404",
-//			module: &mockHTTPModule{
-//				mockModule: mockModule{id: "http2"},
-//				handlers: map[string]http.HandlerFunc{
-//					"/test": func(w http.ResponseWriter, r *http.Request) {
-//						w.WriteHeader(http.StatusOK)
-//					},
-//				},
-//			},
-//			reqMethod:  "GET",
-//			reqPath:    "/nonexistent",
-//			wantStatus: http.StatusNotFound,
-//		},
-//	}
-//
-//	for _, tt := range tests {
-//		t.Run(tt.name, func(t *testing.T) {
-//			app, err := createTestApp(t)
-//			require.NoError(t, err)
-//
-//			app.RegisterModule(tt.module)
-//			err = app.Error()
-//			require.NoError(t, err)
-//
-//			w := newTestResponseRecorder()
-//			r := httptest.NewRequest(tt.reqMethod, tt.reqPath, nil)
-//
-//			app.Router().ServeHTTP(w, r)
-//			assert.Equal(t, tt.wantStatus, w.Code)
-//		})
-//	}
-//}
-
-// Helper to create a test app with minimal configuration
-func createTestApp(t *testing.T) (*hop.App, error) {
-	t.Helper()
-
-	cfg := hop.AppConfig{
-		Port: 4444,
-	}
-	return hop.New(cfg)
-}
-
-// Custom response recorder that implements http.ResponseWriter
-type testResponseRecorder struct {
-	*httptest.ResponseRecorder
-	closeNotify chan bool
-}
-
-func newTestResponseRecorder() *testResponseRecorder {
-	return &testResponseRecorder{
-		ResponseRecorder: httptest.NewRecorder(),
-		closeNotify:      make(chan bool, 1),
-	}
-}
-
-func (r *testResponseRecorder) CloseNotify() <-chan bool {
-	return r.closeNotify
-}
-
-type mockTemplateDataModule struct {
-	mockModule
-	data  map[string]any
-	calls int // Track number of times OnTemplateData is called
-}
-
-func (m *mockTemplateDataModule) OnTemplateData(r *http.Request, data *map[string]any) {
-	m.calls++
-	for k, v := range m.data {
-		(*data)[k] = v
-	}
-}
-
 func TestTemplateDataModules(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -667,3 +518,84 @@ func TestTemplateDataModules(t *testing.T) {
 //	serverErr := <-errCh
 //	assert.NoError(t, serverErr)
 //}
+
+// Mock modules for testing
+type mockModule struct {
+	id       string
+	initErr  error
+	startErr error
+	stopErr  error
+	initDone chan struct{}
+}
+
+func (m *mockModule) ID() string { return m.id }
+func (m *mockModule) Init() error {
+	if m.initDone != nil {
+		defer close(m.initDone)
+	}
+	return m.initErr
+}
+
+func (m *mockModule) Start(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("module %s: %w", m.id, ctx.Err())
+	default:
+		if m.startErr != nil {
+			return fmt.Errorf("module %s: %w", m.id, m.startErr)
+		}
+		return nil
+	}
+}
+
+func (m *mockModule) Stop(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("module %s: %w", m.id, ctx.Err())
+	default:
+		if m.stopErr != nil {
+			return fmt.Errorf("module %s: %w", m.id, m.stopErr)
+		}
+		return nil
+	}
+}
+
+// Helper to create a test app with minimal configuration
+func createTestApp(t *testing.T) (*hop.App, error) {
+	t.Helper()
+
+	cfg := hop.AppConfig{
+		Port: 4444,
+	}
+	return hop.New(cfg)
+}
+
+//// Custom response recorder that implements http.ResponseWriter
+//type testResponseRecorder struct {
+//	*httptest.ResponseRecorder
+//	closeNotify chan bool
+//}
+//
+//func newTestResponseRecorder() *testResponseRecorder {
+//	return &testResponseRecorder{
+//		ResponseRecorder: httptest.NewRecorder(),
+//		closeNotify:      make(chan bool, 1),
+//	}
+//}
+//
+//func (r *testResponseRecorder) CloseNotify() <-chan bool {
+//	return r.closeNotify
+//}
+
+type mockTemplateDataModule struct {
+	mockModule
+	data  map[string]any
+	calls int // Track number of times OnTemplateData is called
+}
+
+func (m *mockTemplateDataModule) OnTemplateData(r *http.Request, data *map[string]any) {
+	m.calls++
+	for k, v := range m.data {
+		(*data)[k] = v
+	}
+}

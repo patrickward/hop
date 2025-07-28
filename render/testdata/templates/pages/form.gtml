@@ -1,0 +1,22 @@
+{{define "page:main"}}
+    <div class="form-content">
+        <h2>{{.Title}}</h2>
+        <p>{{.Data.Content}}</p>
+        <form method="post" action="#">
+            <div class="form-group{{if .HasErrorFor "name"}} error{{end}}">
+                <label for="name">Name:</label>
+                <input type="text" id="name" name="name" required>
+                {{with .ErrorFor "name"}}
+                    <div class="error-message">{{.}}</div>
+                {{end}}
+            </div>
+            <div class="form-group{{if .HasErrorFor "email"}} error{{end}}">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required>
+                {{with .ErrorFor "email"}}
+                    <div class="error-message">{{.}}</div>
+                {{end}}
+            </div>
+        </form>
+    </div>
+{{end}}

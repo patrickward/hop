@@ -14,14 +14,12 @@ import (
 	"time"
 
 	"github.com/alexedwards/scs/v2"
-	"github.com/justinas/nosurf"
 
+	"github.com/patrickward/hop/v2/alert"
 	"github.com/patrickward/hop/v2/dispatch"
-	"github.com/patrickward/hop/v2/flash"
+	"github.com/patrickward/hop/v2/render"
 	"github.com/patrickward/hop/v2/serve"
 	"github.com/patrickward/hop/v2/utils"
-	"github.com/patrickward/hop/v2/view"
-	"github.com/patrickward/hop/v2/view/htmx"
 )
 
 // OnTemplateDataFunc is a function type that takes an HTTP request and a pointer to a map of data.
@@ -56,6 +54,18 @@ type AppConfig struct {
 	TemplateFuncs template.FuncMap
 	// TemplateExt defines the extension for template files (default: ".html")
 	TemplateExt string
+	// TemplateLayoutsDir is the directory for layout templates (default: "layouts")
+	TemplateLayoutsDir string
+	// TemplatePartialsDir is the directory for partial templates (default: "partials")
+	TemplatePartialsDir string
+	// TemplatePagesDir is the directory for view templates (default: "pages")
+	TemplatePagesDir string
+	// TemplateErrorsDir is the directory for error templates (default: "errors")
+	TemplateErrorsDir string
+	// TemplateBaseLayout is the default layout to use for rendering templates (default: "base")
+	TemplateBaseLayout string
+	// TemplateErrorsLayout is the default layout to use for error templates (default: "base")
+	TemplateErrorsLayout string
 	// SessionStore provides the storage backend for sessions
 	SessionStore scs.Store
 	// SessionCookieLifetime is the duration for session cookies to persist (default: 168h)
@@ -78,18 +88,17 @@ type AppConfig struct {
 
 // App represents the core application container that manages all framework components.
 // It provides simple dependency injection, module management, and coordinates startup/shutdown
-// of the application. App implements graceful shutdown and ensures modules are started
-// and stopped in the correct order.
+// of the application. It also ensures modules are started and stopped in the correct order.
 type App struct {
 	environment    string                      // environment (e.g. "production", "development", "test")
 	host           string                      // host address
 	port           int                         // port number
-	flash          *flash.Manager              // flash message manager
+	flash          *alert.FlashManager         // flash message manager
 	firstError     error                       // first error that occurred during initialization
 	logger         *slog.Logger                // logger instance
 	server         *serve.Server               // server instance
 	handler        http.Handler                // the http.Handler for the server
-	tm             *view.TemplateManager       // template manager instance
+	tm             *render.TemplateManager     // template manager instance
 	events         *dispatch.Dispatcher        // event bus instance
 	session        *scs.SessionManager         // session manager instance
 	modules        map[string]Module           // map of modules by ID
@@ -109,23 +118,24 @@ func New(cfg AppConfig) (*App, error) {
 	// Create events
 	eventBus := dispatch.NewDispatcher(cfg.Logger)
 
-	// Create template manager
-	var tm *view.TemplateManager
+	// Create the template manager
+	var tm *render.TemplateManager
 	if cfg.TemplateFS != nil {
-		var err error
-		tm, err = view.NewTemplateManager(
+		//return render.NewTemplateManager(templates.FS, render.WithExtension(".gtml"))
+		tm = render.NewTemplateManager(
 			cfg.TemplateFS,
-			view.TemplateManagerOptions{
-				Extension: cfg.TemplateExt,
-				Funcs:     cfg.TemplateFuncs,
-				Logger:    cfg.Logger,
-			})
-		if err != nil {
-			return nil, fmt.Errorf("error creating template manager: %w", err)
-		}
+			render.WithExtension(cfg.TemplateExt),
+			render.WithFuncMap(cfg.TemplateFuncs),
+			render.WithLayoutsDir(cfg.TemplateLayoutsDir),
+			render.WithPartialsDir(cfg.TemplatePartialsDir),
+			render.WithPagesDir(cfg.TemplatePagesDir),
+			render.WithErrorsDir(cfg.TemplateErrorsDir),
+			render.WithBaseLayout(cfg.TemplateBaseLayout),
+			render.WithErrorsLayout(cfg.TemplateErrorsLayout),
+		)
 	}
 
-	// Create session manager
+	// Create the session manager
 	sm := createSessionStore(&cfg)
 
 	// Create router
@@ -140,7 +150,7 @@ func New(cfg AppConfig) (*App, error) {
 	// Create app
 	app := &App{
 		environment: cfg.Environment,
-		flash:       flash.NewManager(sm),
+		flash:       alert.NewFlashManager("hop_flash", sm),
 		host:        cfg.Host,
 		port:        cfg.Port,
 		logger:      cfg.Logger,
@@ -170,13 +180,6 @@ func New(cfg AppConfig) (*App, error) {
 }
 
 // -----------------------------------------------------------------------------
-
-// SetSystemPagesLayout sets the template to use for rendering error pages
-func (a *App) SetSystemPagesLayout(name string) {
-	if a.tm != nil {
-		a.tm.SetSystemPagesLayout(name)
-	}
-}
 
 // Error returns the first error that occurred during initialization
 func (a *App) Error() error {
@@ -312,7 +315,7 @@ func (a *App) Logger() *slog.Logger { return a.logger }
 func (a *App) Dispatcher() *dispatch.Dispatcher { return a.events }
 
 // Flash returns the application's flash manager
-func (a *App) Flash() *flash.Manager {
+func (a *App) Flash() *alert.FlashManager {
 	return a.flash
 }
 
@@ -323,7 +326,7 @@ func (a *App) Handler() http.Handler { return a.handler }
 func (a *App) Session() *scs.SessionManager { return a.session }
 
 // TM returns the template manager instance for the app
-func (a *App) TM() *view.TemplateManager { return a.tm }
+func (a *App) TM() *render.TemplateManager { return a.tm }
 
 // Host returns the host address for the app
 func (a *App) Host() string { return a.host }
@@ -347,31 +350,21 @@ func (a *App) OnShutdown(fn func(context.Context) error) {
 }
 
 // NewResponse creates a new Response instance with the TemplateManager.
-func (a *App) NewResponse(r *http.Request) *view.Response {
+func (a *App) NewResponse(r *http.Request) *render.Response {
 	if a.tm == nil {
 		panic("template manager not initialized - this app does not support rendering templates")
 	}
 
-	return view.NewResponse(a.tm).
-		SetFlashManager(a.flash).
-		SetData(a.NewTemplateData(r))
+	return render.NewResponse(a.tm).
+		WithFlash(a.flash).
+		Environment(a.environment).
+		MergeData(a.NewTemplateData(r))
 }
 
 // NewTemplateData returns a map of data that can be used in a Go template, API response, etc.
 // It includes the current user, environment, version, and other useful information.
 func (a *App) NewTemplateData(r *http.Request) map[string]any {
-	data := map[string]any{
-		"CSRFToken":        nosurf.Token(r),
-		"RequestPath":      r.URL.Path,
-		"IsHome":           r.URL.Path == "/",
-		"IsHTMXRequest":    htmx.IsHtmxRequest(r),
-		"IsBoostedRequest": htmx.IsBoostedRequest(r),
-		"IsAnyHtmxRequest": htmx.IsAnyHtmxRequest(r),
-		"IsProduction":     a.environment == "production",
-		"IsDevelopment":    a.environment == "development",
-		"IsStaging":        a.environment == "staging",
-		"IsTest":           a.environment == "test",
-	}
+	data := map[string]any{}
 
 	// Add custom data from the onTemplateData callback. Set via app.OnTemplateData.
 	if a.onTemplateData != nil {
@@ -392,12 +385,21 @@ func (a *App) NewTemplateData(r *http.Request) map[string]any {
 	return data
 }
 
+// ServerState returns the current state of the underlying server
+func (a *App) ServerState() serve.ServerState {
+	return a.server.State()
+}
+
+// IsServerRunning returns true if the server is running
+func (a *App) IsServerRunning() bool {
+	return a.server.IsRunning()
+}
+
 // -----------------------------------------------------------------------------
 // Private functions
 // -----------------------------------------------------------------------------
 
 // createSessionStore creates a new session store based on the configuration
-// TODO: Add support for other session stores
 func createSessionStore(cfg *AppConfig) *scs.SessionManager {
 	sameSite := utils.SameSiteFromString(cfg.SessionCookieSameSite)
 

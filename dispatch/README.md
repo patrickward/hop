@@ -1,6 +1,11 @@
 # Dispatch Package
 
-The dispatch package provides a simple, type-safe event bus system for Go applications, supporting both synchronous and asynchronous event handling with wildcards and typed payloads. This package is designed for single-binary applications needing simple, type-safe, in-memory event handling. It's ideal for monolithic applications using the Hop framework where events don't need persistence or distributed processing. For distributed systems, message persistence, or advanced features like message routing and transformation, consider using a more comprehensive solution like [Watermill](https://github.com/ThreeDotsLabs/watermill) or a message queue.
+The dispatch package provides a simple, type-safe event bus system for Go applications, supporting both synchronous and
+asynchronous event handling with wildcards and typed payloads. This package is designed for single-binary applications
+needing simple, type-safe, in-memory event handling. It's ideal for monolithic applications using the Hop framework
+where events don't need persistence or distributed processing. For distributed systems, message persistence, or advanced
+features like message routing and transformation, consider using a more comprehensive solution
+like [Watermill](https://github.com/ThreeDotsLabs/watermill) or a message queue.
 
 ## Features
 
@@ -65,6 +70,7 @@ Events use dot-notation signatures (e.g., "user.created", "system.startup"). The
 ```
 
 Examples:
+
 - `user.created`
 - `order.completed`
 - `system.startup`
@@ -100,12 +106,12 @@ userEvent := dispatch.MustPayloadAs[User](event)
 
 // Type checking
 if dispatch.IsPayloadType[User](event) {
-    // Handle user event
+// Handle user event
 }
 
 // Automatic payload handling
-dispatcher.On("user.created", dispatch.HandlePayload[User](func(ctx context.Context, user User) {
-    fmt.Printf("New user: %s\n", user.Name)
+dispatcher.On("user.created", dispatch.HandlePayload[User](func (ctx context.Context, user User) {
+fmt.Printf("New user: %s\n", user.Name)
 }))
 ```
 
@@ -144,13 +150,13 @@ dispatcher.EmitSync(ctx, "user.created", user)
 All event handlers receive a context.Context, which can be used for cancellation:
 
 ```go
-dispatcher.On("long.process", func(ctx context.Context, event dispatch.Event) {
-    select {
-    case <-ctx.Done():
-        return // Context cancelled
-    case <-time.After(time.Second):
-        // Continue processing
-    }
+dispatcher.On("long.process", func (ctx context.Context, event dispatch.Event) {
+select {
+case <-ctx.Done():
+return // Context cancelled
+case <-time.After(time.Second):
+// Continue processing
+}
 })
 ```
 
@@ -159,9 +165,9 @@ dispatcher.On("long.process", func(ctx context.Context, event dispatch.Event) {
 The dispatcher automatically recovers from panics in event handlers and logs them:
 
 ```go
-dispatcher.On("risky.operation", func(ctx context.Context, event dispatch.Event) {
-    // Even if this panics, other handlers will still run
-    panic("something went wrong")
+dispatcher.On("risky.operation", func (ctx context.Context, event dispatch.Event) {
+// Even if this panics, other handlers will still run
+panic("something went wrong")
 })
 ```
 

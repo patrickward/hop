@@ -1,12 +1,13 @@
 module github.com/patrickward/hop/v2
 
-go 1.23.1
+go 1.24
 
 require (
-	github.com/alexedwards/scs/v2 v2.8.0
-	github.com/justinas/nosurf v1.1.1
-	github.com/stretchr/testify v1.9.0
-	golang.org/x/sync v0.10.0
+	github.com/alexedwards/scs/v2 v2.9.0
+	github.com/google/go-cmp v0.7.0
+	github.com/justinas/nosurf v1.2.0
+	github.com/stretchr/testify v1.10.0
+	golang.org/x/sync v0.16.0
 )
 
 require (

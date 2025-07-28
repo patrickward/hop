@@ -207,7 +207,7 @@ func TestMux_Path(t *testing.T) {
 	_, err = mux.Path("/api/notfound")
 	assert.Error(t, err)
 
-	path, err = mux.Path("/api/users/:id")
+	_, err = mux.Path("/api/users/:id")
 	require.Error(t, err, "Should return an error for a path with a parameter")
 }
 

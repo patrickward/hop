@@ -3,6 +3,7 @@ package serve_test
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -15,53 +16,6 @@ import (
 
 	"github.com/patrickward/hop/v2/serve"
 )
-
-// Test helper to create a server with test-friendly configuration
-func createTestServer(t *testing.T, cfg *serve.Config) *serve.Server {
-	t.Helper()
-
-	if cfg == nil {
-		cfg = &serve.Config{}
-	}
-
-	// Use a test-friendly address if not provided
-	if cfg.Address == "" {
-		cfg.Address = "127.0.0.1:0" // Let OS pick available port
-	}
-
-	// Use shorter timeouts for testing
-	if cfg.IdleTimeout == 0 {
-		cfg.IdleTimeout = 100 * time.Millisecond
-	}
-	if cfg.ReadTimeout == 0 {
-		cfg.ReadTimeout = 100 * time.Millisecond
-	}
-	if cfg.WriteTimeout == 0 {
-		cfg.WriteTimeout = 100 * time.Millisecond
-	}
-	if cfg.ShutdownTimeout == 0 {
-		cfg.ShutdownTimeout = 1 * time.Second
-	}
-
-	// Use a discard logger for tests to avoid noise
-	if cfg.Logger == nil {
-		cfg.Logger = slog.New(slog.NewTextHandler(testWriter{t}, &slog.HandlerOptions{
-			Level: slog.LevelError, // Only show errors in tests
-		}))
-	}
-
-	return serve.NewServer(*cfg)
-}
-
-// testWriter implements io.Writer for test logging
-type testWriter struct {
-	t *testing.T
-}
-
-func (tw testWriter) Write(p []byte) (n int, err error) {
-	tw.t.Log(string(p))
-	return len(p), nil
-}
 
 func TestInitialServerStateTransitions(t *testing.T) {
 	tests := []struct {
@@ -772,7 +726,7 @@ func TestServerShutdownTimeout(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		server.Start()
+		_ = server.Start()
 	}()
 
 	// Wait for running state
@@ -804,4 +758,41 @@ func TestServerShutdownTimeout(t *testing.T) {
 
 	// Server should eventually reach stopped state
 	assert.Equal(t, serve.ServerStateStopped, server.State())
+}
+
+// Test helper to create a server with test-friendly configuration
+func createTestServer(t *testing.T, cfg *serve.Config) *serve.Server {
+	t.Helper()
+
+	if cfg == nil {
+		cfg = &serve.Config{}
+	}
+
+	// Use a test-friendly address if not provided
+	if cfg.Address == "" {
+		cfg.Address = "127.0.0.1:0" // Let OS pick available port
+	}
+
+	// Use shorter timeouts for testing
+	if cfg.IdleTimeout == 0 {
+		cfg.IdleTimeout = 100 * time.Millisecond
+	}
+	if cfg.ReadTimeout == 0 {
+		cfg.ReadTimeout = 100 * time.Millisecond
+	}
+	if cfg.WriteTimeout == 0 {
+		cfg.WriteTimeout = 100 * time.Millisecond
+	}
+	if cfg.ShutdownTimeout == 0 {
+		cfg.ShutdownTimeout = 1 * time.Second
+	}
+
+	// Use a discard logger for tests to avoid noise
+	if cfg.Logger == nil {
+		cfg.Logger = slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{
+			Level: slog.LevelError, // Only show errors in tests
+		}))
+	}
+
+	return serve.NewServer(*cfg)
 }

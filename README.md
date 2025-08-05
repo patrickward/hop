@@ -10,8 +10,7 @@ applications with Go's `html/template` package and HTMX integration.
 
 ## What is Hop?
 
-Hop provides a simple foundation for building web applications that render HTML templates on the server. It handles
-common web application concerns like:
+Hop provides a foundation for building web applications with Go. It provides the following features:
 
 - Template rendering with layouts, partials, and error pages
 - Session management with configurable cookie settings
@@ -29,17 +28,6 @@ This is not a general-purpose web framework. It was built for specific use cases
 using established frameworks
 like [Chi](https://github.com/go-chi/chi), [Echo](https://echo.labstack.com/), [Gin](https://gin-gonic.com/),
 or [Fiber](https://gofiber.io/) for production applications.
-
-## Features
-
-- 🧩 Modular architecture with plugin system
-- 📝 Template rendering with layouts and partials
-- 🔄 Built-in HTMX support
-- 📦 Session management
-- 🎯 Event dispatching
-- 🛣️ HTTP routing with middleware
-- 📋 Configuration management
-- 📝 Structured logging
 
 ## Quick Start
 
@@ -131,9 +119,11 @@ mux.HandleFunc("/", homeHandler(app))
 ### Required Template Patterns
 
 **Layout Templates (Required)**
-- Layout templates **must** be defined with the `layout:` prefix: `{{define "layout:name"}}`
+
+- Layout templates **must** be defined with the `layout:` prefix. For example: `{{define "layout:name"}}`
 - Examples: `{{define "layout:base"}}`, `{{define "layout:minimal"}}`, `{{define "layout:admin"}}`
-- This is the only hard requirement in the template system
+- This is the only hard requirement in the template system in terms of naming conventions. However, some suggested
+  conventions are provided below.
 
 ### Recommended Conventions
 
@@ -151,16 +141,13 @@ templates/
 
 **Template Naming (Your Choice)**
 
-- **Page templates**: Name them however you like (e.g., `home.html`, `user/profile.html`)
-- **Partials**: Common patterns include `@name` or `_name`, but any naming works
-- **Error templates**: Typically named by status code (`404.html`, `500.html`)
-
-**Template Definitions (Flexible)**
-
-You can use any naming pattern for template definitions. Common patterns include:
-
-- `{{define "page:main"}}` for page content and used within the layout
-- `{{define "@header"}}` for partials. I like to use `@` for partials, but you can use `_` or any other prefix. 
+- **Page templates**: Name them however you like (e.g., `home.html`, `user/profile.html`). Each page template should define a content block like `{{define "page:main"}}`. You'll then include this in your layout with `{{template "page:main" .}}`.
+- **Partials**: Name them however you like within the `partials` directory. They can be included in layouts or pages using `{{template "@partialName" .}}`. The `@` prefix is just a convention to distinguish partials. When defining them, I like to use the `@` prefix to indicate they are partials, but this is optional. For example: `{{define "@header"}}`, `{{define "@some/nested/partial"}}`. The `@` prefix is not required, but it helps avoid naming collisions with page templates and makes it clear that these are reusable components.
+- **Error templates**: Error templates are just page templates, but named by status code for convenience. They exist in the `pages/errors/` directory by default. They should use the same content block definition as regular pages (e.g., `{{define "page:main"}}`), and you can include them in your error layout with `{{template "page:main" .}}`. Name them by status code as this is how the framework will look for them:
+  - `pages/errors/404.html` for "Not Found"
+  - `pages/errors/500.html` for "Internal Server Error"
+  - `pages/errors/403.html` for "Forbidden"
+  - etc.
 
 ### Example Layout Template
 ```
@@ -190,8 +177,6 @@ html
 </div>
 {{end}}
 ```
-
-The key point is that **only the `layout:` prefix is mandatory**. Everything else - directory structure, file naming, and template definition patterns - is customizable based on your project's needs.
 
 When referring to pages, you can use the `Path` method to specify the template path relative to the configured directories. For example, `app.NewResponse(r).Path("home")` will look for `templates/pages/home.html` by default. If no extension is provided, it will use the configured `TemplateExt` (default is `.html`).
 

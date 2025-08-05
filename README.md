@@ -130,13 +130,13 @@ mux.HandleFunc("/", homeHandler(app))
 **Directory Structure (Configurable)**
 
 The default directory structure can be customized via `AppConfig`:
-```
 
+```text
 templates/
-├── layouts/     # Layout templates (configurable: TemplateLayoutsDir)
-├── pages/       # Page templates (configurable: TemplatePagesDir)  
-├── partials/    # Reusable components (configurable: TemplatePartialsDir)
-└── errors/      # Error page templates (configurable: TemplateErrorsDir)
+├── layouts/      # Layout templates (configurable: TemplateLayoutsDir)
+├── pages/        # Page templates (configurable: TemplatePagesDir)  
+├── pages/errors/ # Error page templates (configurable: TemplateErrorsDir)
+└── partials/     # Reusable components (configurable: TemplatePartialsDir)
 ```
 
 **Template Naming (Your Choice)**
@@ -150,8 +150,7 @@ templates/
   - etc.
 
 ### Example Layout Template
-```
-html
+```html
 {{define "layout:base"}}
 <!DOCTYPE html>
 <html>
